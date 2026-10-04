@@ -1,5 +1,9 @@
 name: CI Pipeline
 
+# Gate for every push and pull request. It must fail on a problem, never fix it:
+# `npm run format` and `npm run lint:fix` rewrite files, so using them here would
+# report success on code that is not committed.
+
 on:
   push:
     branches:
@@ -7,6 +11,13 @@ on:
   pull_request:
     branches:
       - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -19,16 +30,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22 
+          # 22 is the runtime floor, see src/core/util/nodeVersion.ts.
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
       - name: Check Prettier
-        run: npm run format
+        run: npm run format:check
 
       - name: Run Lint
-        run: npm run lint:fix
+        run: npm run lint
 
       - name: Build
         run: npm run build

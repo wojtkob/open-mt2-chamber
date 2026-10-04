@@ -5,13 +5,19 @@ name: Release Build
 # open-mt2 has no native addons, so the compiled output is architecture neutral
 # and one build serves every platform. The arm64 job still runs the real thing
 # under QEMU to prove the image and the package work on AArch64.
+#
+# Two automatic behaviours:
+#   * every push to master builds everything, uploads the packages as artifacts
+#     and pushes :latest to ghcr.io;
+#   * a tag push (v*) additionally publishes a GitHub release with both
+#     packages and their checksums attached.
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +25,10 @@ permissions:
   # Required to push the multi-arch image to ghcr.io; without it the build fails
   # at the push step with "installation not allowed to Create organization package".
   packages: write
+
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   NODE_VERSION: '22'
@@ -86,12 +96,6 @@ jobs:
           path: release/*.tar.gz*
           retention-days: 30
 
-      - name: Attach the package to the GitHub release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.tar.gz*
-
   package-x64:
     name: Package for x86_64
     needs: verify
@@ -115,12 +119,6 @@ jobs:
           name: open-mt2-x64
           path: release/*.tar.gz*
           retention-days: 30
-
-      - name: Attach the package to the GitHub release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.tar.gz*
 
   smoke-arm64:
     name: ARM64 smoke test (QEMU)
@@ -208,3 +206,72 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  publish:
+    name: Publish the GitHub release
+    # A release is only cut once every autobuild job is green, so a broken build
+    # can never be published. Dispatching this workflow with a tag as the ref
+    # (github.ref becomes refs/tags/vX) republishes that tag without a new push.
+    needs: [package, package-x64, smoke-arm64, docker]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the ARM64 package
+        uses: actions/download-artifact@v4
+        with:
+          name: open-mt2-arm64
+          path: release
+
+      - name: Download the x86_64 package
+        uses: actions/download-artifact@v4
+        with:
+          name: open-mt2-x64
+          path: release
+
+      - name: Verify the checksums before publishing
+        run: |
+          set -euo pipefail
+          cd release
+          ls -l
+          for sum in ./*.tar.gz.sha256; do
+            sha256sum --check "$sum"
+          done
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} - Metin2 server for ARM64 (Pine A64) and x86_64
+          generate_release_notes: true
+          files: |
+            release/*.tar.gz
+            release/*.tar.gz.sha256
+          body: |
+            ## Pine A64 / ARM64 quick start
+
+            Requires **Node.js >= 22** on the target board. Armbian often ships an
+            older `nodejs` package; `deploy/install.sh` adds the NodeSource
+            repository when that happens.
+
+            ```bash
+            tar -xzf open-mt2-*-aarch64.tar.gz
+            cd open-mt2-*-aarch64
+            sudo ./deploy/install.sh
+            ```
+
+            The installer provisions MariaDB/Redis, creates the `openmt2`
+            account, installs and starts `open-mt2-auth.service` and
+            `open-mt2-game.service`, and can apply the database schema for you
+            (`--skip-deps`, `--skip-migrate`, `--no-start`, `--prefix` are
+            available; see `deploy/README.txt`).
+
+            Both archives are architecture neutral - the same `dist/` tree serves
+            ARM64 and x86_64. Verify a download with the matching `.sha256` file.
+
+            Container alternative, multi-arch (`linux/amd64`, `linux/arm64`):
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
+
+            Full instructions: [docs/arm64.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/arm64.md)

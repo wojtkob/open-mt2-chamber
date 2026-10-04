@@ -15,7 +15,36 @@ emit those. `npm run build` copies them into `dist/`, and
 Verified on the CI pipeline: the container image is built for `linux/arm64`
 under QEMU and the packaged tree is smoke-tested on AArch64.
 
-## 1. Build the package
+## 1. Install a prebuilt package (recommended)
+
+Every tag builds an installable package on the
+[releases page](https://github.com/wojtkob/open-mt2-arm64/releases):
+
+| Asset | Target |
+|-------|--------|
+| `open-mt2-<version>-aarch64.tar.gz` | Pine A64, Armbian, any ARM64 board |
+| `open-mt2-<version>-x86_64.tar.gz` | desktops and servers |
+| `*.tar.gz.sha256` | checksum for the matching archive |
+
+On the board:
+
+```bash
+tar -xzf open-mt2-<version>-aarch64.tar.gz
+cd open-mt2-<version>-aarch64
+sha256sum -c open-mt2-<version>-aarch64.tar.gz.sha256   # if you kept it next to it
+sudo ./deploy/install.sh
+```
+
+The archives are architecture neutral - the same `dist/` tree serves ARM64 and
+x86_64 - so the only difference is the archive name.
+
+Or use the multi-arch container image (`linux/amd64` and `linux/arm64`):
+
+```bash
+docker pull ghcr.io/wojtkob/open-mt2-arm64:latest
+```
+
+## 2. Build the package from source
 
 From a checkout (any architecture, Node.js >= 22 required):
 
@@ -44,7 +73,7 @@ deploy/          install.sh, uninstall.sh, systemd units, env template
 `build-arm64.sh` also smoke-tests the staged tree, so a package that cannot boot
 is never written.
 
-## 2. Install on the Pine A64
+## 3. Install on the Pine A64
 
 Copy the tarball over and run the installer as root:
 
@@ -82,7 +111,7 @@ The installer:
 | `--no-start` | install the units but leave them stopped |
 | `--force` | replace an existing installation |
 
-## 3. Configure
+## 4. Configure
 
 `/etc/open-mt2/open-mt2.env` is read by systemd (`EnvironmentFile=`) and, as a
 fallback for any older Node.js, by the servers themselves.
@@ -111,7 +140,7 @@ Restart after editing:
 sudo systemctl restart open-mt2-auth open-mt2-game
 ```
 
-## 4. Point the client at the server
+## 5. Point the client at the server
 
 In the client's `serverinfo.py`:
 
@@ -125,7 +154,7 @@ PORT_MARK = 13001
 
 Log in with `admin` / the password in `SEED_ADMIN_PASSWORD`.
 
-## 5. Operating
+## 6. Operating
 
 ```bash
 systemctl status open-mt2-auth open-mt2-game

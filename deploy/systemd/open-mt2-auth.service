@@ -1,6 +1,6 @@
 [Unit]
 Description=open-mt2 auth server (Metin2)
-Documentation=https://github.com/willianmarquess/open-mt2
+Documentation=https://github.com/wojtkob/open-mt2-arm64
 After=network-online.target mariadb.service mysql.service redis-server.service redis.service
 Wants=network-online.target
 

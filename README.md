@@ -1,15 +1,36 @@
 # Open Metin2 - Server Emulator
 
-![GitHub repo size](https://img.shields.io/github/repo-size/willianmarquess/open-mt2?style=for-the-badge)
-![GitHub language count](https://img.shields.io/github/languages/count/willianmarquess/open-mt2?style=for-the-badge)
-![GitHub forks](https://img.shields.io/github/forks/willianmarquess/open-mt2?style=for-the-badge)
+![GitHub repo size](https://img.shields.io/github/repo-size/wojtkob/open-mt2-arm64?style=for-the-badge)
+![GitHub language count](https://img.shields.io/github/languages/count/wojtkob/open-mt2-arm64?style=for-the-badge)
 
-![CI Pipeline](https://github.com/willianmarquess/open-mt2/actions/workflows/flow.yml/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=willianmarquess_open-mt2&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=willianmarquess_open-mt2)
+[![CI Pipeline](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/flow.yml/badge.svg)](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/flow.yml)
+[![Release Build](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/release.yml/badge.svg)](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/wojtkob/open-mt2-arm64?label=release&style=for-the-badge)](https://github.com/wojtkob/open-mt2-arm64/releases/latest)
+[![Container](https://img.shields.io/badge/image-ghcr.io%2Fwojtkob%2Fopen--mt2--arm64-blue?style=for-the-badge)](https://github.com/wojtkob/open-mt2-arm64/pkgs/container/open-mt2-arm64)
 
-[![SonarQube Cloud](https://sonarcloud.io/images/project_badges/sonarcloud-light.svg)](https://sonarcloud.io/summary/new_code?id=willianmarquess_open-mt2)
-[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=willianmarquess_open-mt2)](https://sonarcloud.io/summary/new_code?id=willianmarquess_open-mt2)
+> **Requires Node.js >= 22.** The quests use `Promise.withResolvers`; older
+> runtimes fail at startup instead of running. See [docs/arm64.md](docs/arm64.md).
 
+## Install
+
+Download a prebuilt package from the [releases page](https://github.com/wojtkob/open-mt2-arm64/releases)
+and run the bundled installer as root:
+
+```bash
+tar -xzf open-mt2-<version>-aarch64.tar.gz   # or -x86_64.tar.gz
+cd open-mt2-<version>-aarch64
+sudo ./deploy/install.sh
+```
+
+This is the deployment path for a **Pine A64 / Armbian** board: the installer
+provisions Node.js 22+, MariaDB and Redis, creates the `openmt2` account,
+installs `open-mt2-auth.service` and `open-mt2-game.service`, applies the
+database schema and starts the servers. A multi-arch container image
+(`linux/amd64`, `linux/arm64`) is published to
+`ghcr.io/wojtkob/open-mt2-arm64`.
+
+Complete instructions, configuration reference and troubleshooting:
+**[docs/arm64.md](docs/arm64.md)**.
 
 Metin2 JS is an open source implementation of MMORPG Metin2 server using Nodejs with Typescript language.
 
@@ -184,11 +205,11 @@ In this implementation we are using custom commands, described bellow:
 
 ## Auth Flow
 The image bellow show how the client interacts with auth server.
-![](https://github.com/willianmarquess/open-mt2/blob/master/docs/images/mt2-auth-server.drawio.png)
+![](https://github.com/wojtkob/open-mt2-arm64/blob/master/docs/images/mt2-auth-server.drawio.png)
 
 ## Game Flow (work in progress)
 The image bellow show how the client interacts with game server.
-![](https://github.com/willianmarquess/open-mt2/blob/master/docs/images/mt2-game-server.drawio.png)
+![](https://github.com/wojtkob/open-mt2-arm64/blob/master/docs/images/mt2-game-server.drawio.png)
 
 ## License
 

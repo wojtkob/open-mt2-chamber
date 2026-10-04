@@ -3,6 +3,17 @@
   "version": "1.0.0",
   "description": "",
   "main": "src/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wojtkob/open-mt2-arm64.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wojtkob/open-mt2-arm64/issues"
+  },
+  "homepage": "https://github.com/wojtkob/open-mt2-arm64#readme",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev:auth": "cross-env LOG_LEVEL=info tsnd -r tsconfig-paths/register --transpile-only --respawn --ignore-watch node_modules --watch src/auth --env-file=.env src/auth/main.ts",
     "dev:game": "cross-env LOG_LEVEL=info tsnd -r tsconfig-paths/register --transpile-only --respawn --ignore-watch node_modules --watch src/game --env-file=.env src/game/main.ts",
@@ -11,8 +22,10 @@
     "auth": "node --env-file=.env dist/auth/main.js",
     "game": "node --env-file=.env dist/game/main.js",
     "migrate": "cross-env tsnd -r tsconfig-paths/register --env-file=.env tools/database/migrate.ts",
-    "format": "prettier -w {src,test}/**/*.ts",
+    "format": "prettier -w \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepare": "husky || exit 0 && husky install",
+    "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test:unit": "mocha -r tsconfig-paths/register --config test/.mocharc.unit.json --exit",
     "test:integration": "node --env-file=.env ./node_modules/mocha/bin/mocha --env-file=.env -r tsconfig-paths/register --config test/.mocharc.integration.json --exit",
