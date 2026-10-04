@@ -92,7 +92,7 @@ jobs:
       - name: Upload the installable package
         uses: actions/upload-artifact@v4
         with:
-          name: open-mt2-arm64
+          name: package-arm64
           path: release/*.tar.gz*
           retention-days: 30
 
@@ -219,7 +219,7 @@ jobs:
       - name: Download the ARM64 package
         uses: actions/download-artifact@v4
         with:
-          name: open-mt2-arm64
+          name: package-arm64
           path: release
 
       - name: Download the x86_64 package

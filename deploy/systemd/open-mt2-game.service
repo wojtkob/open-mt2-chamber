@@ -1,6 +1,6 @@
 [Unit]
 Description=open-mt2 game server (Metin2)
-Documentation=https://github.com/wojtkob/open-mt2-arm64
+Documentation=https://github.com/wojtkob/open-mt2-chamber
 After=network-online.target mariadb.service mysql.service redis-server.service redis.service
 Wants=network-online.target
 Requires=open-mt2-auth.service

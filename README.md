@@ -1,19 +1,19 @@
 # Open Metin2 - Server Emulator
 
-![GitHub repo size](https://img.shields.io/github/repo-size/wojtkob/open-mt2-arm64?style=for-the-badge)
-![GitHub language count](https://img.shields.io/github/languages/count/wojtkob/open-mt2-arm64?style=for-the-badge)
+![GitHub repo size](https://img.shields.io/github/repo-size/wojtkob/open-mt2-chamber?style=for-the-badge)
+![GitHub language count](https://img.shields.io/github/languages/count/wojtkob/open-mt2-chamber?style=for-the-badge)
 
-[![CI Pipeline](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/flow.yml/badge.svg)](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/flow.yml)
-[![Release Build](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/release.yml/badge.svg)](https://github.com/wojtkob/open-mt2-arm64/actions/workflows/release.yml)
-[![Latest release](https://img.shields.io/github/v/release/wojtkob/open-mt2-arm64?label=release&style=for-the-badge)](https://github.com/wojtkob/open-mt2-arm64/releases/latest)
-[![Container](https://img.shields.io/badge/image-ghcr.io%2Fwojtkob%2Fopen--mt2--arm64-blue?style=for-the-badge)](https://github.com/wojtkob/open-mt2-arm64/pkgs/container/open-mt2-arm64)
+[![CI Pipeline](https://github.com/wojtkob/open-mt2-chamber/actions/workflows/flow.yml/badge.svg)](https://github.com/wojtkob/open-mt2-chamber/actions/workflows/flow.yml)
+[![Release Build](https://github.com/wojtkob/open-mt2-chamber/actions/workflows/release.yml/badge.svg)](https://github.com/wojtkob/open-mt2-chamber/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/wojtkob/open-mt2-chamber?label=release&style=for-the-badge)](https://github.com/wojtkob/open-mt2-chamber/releases/latest)
+[![Container](https://img.shields.io/badge/image-ghcr.io%2Fwojtkob%2Fopen--mt2--chamber-blue?style=for-the-badge)](https://github.com/wojtkob/open-mt2-chamber/pkgs/container/open-mt2-chamber)
 
 > **Requires Node.js >= 22.** The quests use `Promise.withResolvers`; older
 > runtimes fail at startup instead of running. See [docs/arm64.md](docs/arm64.md).
 
 ## Install
 
-Download a prebuilt package from the [releases page](https://github.com/wojtkob/open-mt2-arm64/releases)
+Download a prebuilt package from the [releases page](https://github.com/wojtkob/open-mt2-chamber/releases)
 and run the bundled installer as root:
 
 ```bash
@@ -27,7 +27,7 @@ provisions Node.js 22+, MariaDB and Redis, creates the `openmt2` account,
 installs `open-mt2-auth.service` and `open-mt2-game.service`, applies the
 database schema and starts the servers. A multi-arch container image
 (`linux/amd64`, `linux/arm64`) is published to
-`ghcr.io/wojtkob/open-mt2-arm64`.
+`ghcr.io/wojtkob/open-mt2-chamber`.
 
 Complete instructions, configuration reference and troubleshooting:
 **[docs/arm64.md](docs/arm64.md)**.
@@ -205,11 +205,11 @@ In this implementation we are using custom commands, described bellow:
 
 ## Auth Flow
 The image bellow show how the client interacts with auth server.
-![](https://github.com/wojtkob/open-mt2-arm64/blob/master/docs/images/mt2-auth-server.drawio.png)
+![](https://github.com/wojtkob/open-mt2-chamber/blob/master/docs/images/mt2-auth-server.drawio.png)
 
 ## Game Flow (work in progress)
 The image bellow show how the client interacts with game server.
-![](https://github.com/wojtkob/open-mt2-arm64/blob/master/docs/images/mt2-game-server.drawio.png)
+![](https://github.com/wojtkob/open-mt2-chamber/blob/master/docs/images/mt2-game-server.drawio.png)
 
 ## License
 

@@ -18,7 +18,7 @@ under QEMU and the packaged tree is smoke-tested on AArch64.
 ## 1. Install a prebuilt package (recommended)
 
 Every tag builds an installable package on the
-[releases page](https://github.com/wojtkob/open-mt2-arm64/releases):
+[releases page](https://github.com/wojtkob/open-mt2-chamber/releases):
 
 | Asset | Target |
 |-------|--------|
@@ -41,7 +41,7 @@ x86_64 - so the only difference is the archive name.
 Or use the multi-arch container image (`linux/amd64` and `linux/arm64`):
 
 ```bash
-docker pull ghcr.io/wojtkob/open-mt2-arm64:latest
+docker pull ghcr.io/wojtkob/open-mt2-chamber:latest
 ```
 
 ## 2. Build the package from source
