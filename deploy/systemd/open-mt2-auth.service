@@ -1,0 +1,35 @@
+[Unit]
+Description=open-mt2 auth server (Metin2)
+Documentation=https://github.com/willianmarquess/open-mt2
+After=network-online.target mariadb.service mysql.service redis-server.service redis.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__INSTALL_DIR__
+EnvironmentFile=__CONFIG_DIR__/open-mt2.env
+ExecStart=__NODE_BIN__ __INSTALL_DIR__/dist/auth/main.js
+Restart=on-failure
+RestartSec=5
+# Give the servers time to flush character state on SIGTERM.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=open-mt2-auth
+
+# Hardening: the servers only need to read their own installation and write logs.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=__LOG_DIR__
+
+[Install]
+WantedBy=multi-user.target

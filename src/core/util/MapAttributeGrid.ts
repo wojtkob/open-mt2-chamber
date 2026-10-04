@@ -1,4 +1,5 @@
 import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import * as zlib from 'node:zlib';
 import { MapAttributeFlagEnum } from '@/core/enum/MapAttributeFlagEnum';
 import MathUtil from '@/core/domain/util/MathUtil';
@@ -15,6 +16,7 @@ import MathUtil from '@/core/domain/util/MathUtil';
 const MAGIC = 'MATR';
 const VERSION = 1;
 const HEADER_SIZE = MAGIC.length + 1 + 4 + 4 + 4;
+const GRID_FILE_EXTENSION = '.attr.gz';
 
 export const MAP_ATTR_CELL_SIZE = 100;
 
@@ -88,8 +90,18 @@ export default class MapAttributeGrid {
         });
     }
 
+    /** Absolute path of a map's grid file, whether or not it is shipped. */
+    static filePath(directory: string, mapName: string): string {
+        return path.join(directory, `${mapName}${GRID_FILE_EXTENSION}`);
+    }
+
+    /** True when a map ships a grid, i.e. when its blocked cells are known. */
+    static exists(directory: string, mapName: string): boolean {
+        return fsSync.existsSync(MapAttributeGrid.filePath(directory, mapName));
+    }
+
     static load(directory: string, mapName: string, baseX: number, baseY: number): MapAttributeGrid {
-        const filePath = `${directory}/${mapName}.attr.gz`;
+        const filePath = MapAttributeGrid.filePath(directory, mapName);
 
         if (!fsSync.existsSync(filePath)) {
             return MapAttributeGrid.empty(baseX, baseY);

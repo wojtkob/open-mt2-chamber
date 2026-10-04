@@ -30,6 +30,18 @@ jobs:
       - name: Run Lint
         run: npm run lint:fix
 
+      - name: Build
+        run: npm run build
+
+      - name: Verify the compiled tree is complete
+        run: npm run verify:dist
+
+      - name: Check the deployment kit
+        run: |
+          bash -n deploy/install.sh
+          bash -n deploy/uninstall.sh
+          bash -n deploy/build-arm64.sh
+
       - name: Run Tests with Coverage
         run: npm run test:coverage
 

@@ -14,6 +14,7 @@ import { VictimQuest } from './facade/VictimQuest';
 import Monster from '../entities/game/mob/Monster';
 import ShopManager from '@/core/domain/shop/ShopManager';
 import ItemManager from '../manager/ItemManager';
+import RuntimePaths from '@/core/infra/config/RuntimePaths';
 import { PlayerQuest } from './facade/PlayerQuest';
 
 type ChatOption = {
@@ -54,14 +55,23 @@ export class QuestManager {
     }
 
     load() {
-        const baseDir = path.join(process.cwd(), 'src', 'core', 'domain', 'quests', 'quests');
+        const baseDir = RuntimePaths.resolveFirstExisting([
+            // Same folder in both layouts: `quests/` sits next to this module
+            // under src/ (ts-node) and under dist/ (compiled), so this stays
+            // correct no matter which working directory the process uses.
+            path.join(__dirname, 'quests'),
+            path.join(RuntimePaths.appRoot(), 'dist', 'core', 'domain', 'quests', 'quests'),
+            path.join(RuntimePaths.appRoot(), 'src', 'core', 'domain', 'quests', 'quests'),
+        ]);
 
         if (!fs.existsSync(baseDir)) {
             this.logger.error(`[QUEST_MANAGER]: directory not found: ${baseDir}`);
             return;
         }
 
-        const files = fs.readdirSync(baseDir).filter((f) => f.endsWith('.ts') || f.endsWith('.js'));
+        const files = fs
+            .readdirSync(baseDir)
+            .filter((f) => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts') && !f.endsWith('.map'));
 
         for (const file of files) {
             try {
@@ -69,6 +79,11 @@ export class QuestManager {
             } catch (err) {
                 this.logger.error(`[QUEST_MANAGER] Failed to load quest file ${file}: ${(err as Error).message}`);
             }
+        }
+
+        if (this.questsClasses.size === 0) {
+            this.logger.error(`[QUEST_MANAGER] No quest found in ${baseDir}, quests will not run`);
+            return;
         }
 
         this.logger.info(`[QUEST_MANAGER] Loaded ${this.questsClasses.size} quests`);

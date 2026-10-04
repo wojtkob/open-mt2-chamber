@@ -1,23 +1,10 @@
-import DatabaseManager from "@/core/infra/database/DatabaseManager";
+import { runMigrations } from '@/cli/migrate';
 
-const databaseManager = new DatabaseManager({
-    logger: console,
-    config: {
-        DB_HOST: process.env.DB_HOST!,
-        DB_DATABASE_NAME: process.env.DB_DATABASE_NAME!,
-        DB_ROOT_PASSWORD: process.env.DB_ROOT_PASSWORD!,
-        DB_USER: process.env.DB_USER!,
-        DB_PORT: process.env.DB_PORT!
-    } as any
+/**
+ * Development wrapper around `src/cli/migrate.ts`, which is the entry point the
+ * compiled release uses (`dist/cli/migrate.js`). Kept so `npm run migrate`
+ * keeps working with ts-node.
+ */
+void runMigrations().then((exitCode) => {
+    process.exit(exitCode);
 });
-
-databaseManager.init()
-    .then(async () => {
-        console.log('Database scripts ran successfully');
-        await databaseManager.executeScripts();
-        await databaseManager.close();
-    })
-    .catch((err: Error) => {
-    console.error('Error when try to execute database scripts', err);
-    })
-    .finally(() => process.exit());

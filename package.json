@@ -22,7 +22,14 @@
     "docker:all": "docker-compose -f docker-compose.yml up -d",
     "docker:dep": "docker-compose -f docker-compose.dep.yml up -d",
     "generate:doc": "node tools/doc/docGenerator.js",
-    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json"
+    "build:ts": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "build:assets": "node tools/copy-assets.js",
+    "build": "npm run build:ts && npm run build:assets",
+    "verify:dist": "node tools/verify-dist.js",
+    "migrate:prod": "node --env-file-if-exists=.env dist/cli/migrate.js",
+    "auth:prod": "node --env-file-if-exists=.env dist/auth/main.js",
+    "game:prod": "node --env-file-if-exists=.env dist/game/main.js",
+    "package:arm64": "bash deploy/build-arm64.sh"
   },
   "author": "Willian Marques (willian.goncalves4@gmail.com)",
   "license": "ISC",

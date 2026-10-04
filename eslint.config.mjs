@@ -4,7 +4,10 @@ import tseslint from "typescript-eslint";
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
-  { ignores: ["dist"] },
+  // `.kilo` holds agent worktrees and `.husky` git hooks: nested checkouts bring
+  // their own tsconfig, which makes typescript-eslint's project service fail with
+  // "multiple candidate TSConfigRootDirs".
+  { ignores: ["dist", "release", ".kilo", ".husky"] },
   { files: ["**/*.{js,mjs,cjs,ts}"] },
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
   { languageOptions: { globals: globals.browser } },

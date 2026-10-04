@@ -7,4 +7,6 @@ coverage
 .git
 .gitignore
 .env
+release
 docker-compose.yml
+Dockerfile

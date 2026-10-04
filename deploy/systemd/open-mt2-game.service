@@ -1,0 +1,37 @@
+[Unit]
+Description=open-mt2 game server (Metin2)
+Documentation=https://github.com/willianmarquess/open-mt2
+After=network-online.target mariadb.service mysql.service redis-server.service redis.service
+Wants=network-online.target
+Requires=open-mt2-auth.service
+After=open-mt2-auth.service
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__INSTALL_DIR__
+EnvironmentFile=__CONFIG_DIR__/open-mt2.env
+ExecStart=__NODE_BIN__ __INSTALL_DIR__/dist/game/main.js
+Restart=on-failure
+RestartSec=5
+# World.close() despawns players and flushes their state; allow time for it.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=open-mt2-game
+
+# Hardening: the servers only need to read their own installation and write logs.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=__LOG_DIR__
+
+[Install]
+WantedBy=multi-user.target

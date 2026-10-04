@@ -14,13 +14,12 @@ import Item from './entities/game/item/Item';
 import { AtlasInfoGoto } from '@/game/infra/config/GameConfig';
 import { EntityManager } from './manager/EntityManager';
 import MapAttributeGrid from '../util/MapAttributeGrid';
-import * as path from 'node:path';
+import RuntimePaths from '@/core/infra/config/RuntimePaths';
 import { AffectBitsTypeEnum } from '../enum/AffectBitsTypeEnum';
 
 const SIZE_QUEUE = 5_000;
 export const CHAR_VIEW_SIZE = 8000;
 const SPAWN_POSITION_MULTIPLIER = 100;
-const DEFAULT_ATTR_CONFIG_PATH = 'src/core/infra/config/data/attr';
 const SPAWN_FREE_POSITION_RADIUS = 500;
 const SPAWN_FREE_POSITION_RETRIES = 16;
 
@@ -87,13 +86,15 @@ export default class Area {
     //TODO: add system do choose which map will be generated on this server
     async load() {
         const areaName = this.name.split('/').pop() ?? this.name;
+        const attributesDirectory = RuntimePaths.dataDir('attr');
 
-        this.attributes = MapAttributeGrid.load(
-            path.join(process.cwd(), DEFAULT_ATTR_CONFIG_PATH),
-            areaName,
-            this.positionX,
-            this.positionY,
-        );
+        if (!MapAttributeGrid.exists(attributesDirectory, areaName)) {
+            this.logger.info(
+                `[AREA] No walkability grid for "${areaName}" in ${attributesDirectory}, every position will be walkable`,
+            );
+        }
+
+        this.attributes = MapAttributeGrid.load(attributesDirectory, areaName, this.positionX, this.positionY);
 
         const entitiesToSpawn = await this.spawnManager.getEntities(areaName);
         entitiesToSpawn.forEach((entity) => {

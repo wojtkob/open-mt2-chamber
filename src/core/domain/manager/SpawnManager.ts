@@ -8,11 +8,10 @@ import MathUtil from '../util/MathUtil';
 import Monster from '../entities/game/mob/Monster';
 import Stone from '../entities/game/mob/Stone';
 import Logger from '@/core/infra/logger/Logger';
+import RuntimePaths from '@/core/infra/config/RuntimePaths';
 import { GameConfig, GroupCollection, Groups } from '@/game/infra/config/GameConfig';
 import { SpawnConfigTypeEnum } from '@/core/enum/SpawnConfigTypeEnum';
 import { EntityManager } from './EntityManager';
-
-const DEFAULT_SPAWN_CONFIG_PATH = 'src/core/infra/config/data/spawn';
 
 const spawnFiles = ['regen', 'npc', 'boss', 'stone'];
 
@@ -203,7 +202,7 @@ export default class SpawnManager {
     }
 
     async loadFromArea(areaName: string) {
-        const currentDir = process.cwd();
+        const spawnDirectory = path.join(RuntimePaths.dataDir('spawn'), areaName);
 
         const spawns: Record<string, Array<SpawnConfig>> = {
             regen: new Array<SpawnConfig>(),
@@ -212,8 +211,13 @@ export default class SpawnManager {
             stone: new Array<SpawnConfig>(),
         };
 
+        if (!fsSync.existsSync(spawnDirectory)) {
+            this.logger.info(`[SPAWN_MANAGER] No spawn directory for area "${areaName}" at ${spawnDirectory}`);
+            return spawns;
+        }
+
         for (const file of spawnFiles) {
-            const absoluteFilePath = path.join(currentDir, DEFAULT_SPAWN_CONFIG_PATH + `/${areaName}/${file}.json`);
+            const absoluteFilePath = path.join(spawnDirectory, `${file}.json`);
 
             try {
                 if (fsSync.existsSync(absoluteFilePath)) {
@@ -234,8 +238,10 @@ export default class SpawnManager {
                         });
                     });
                 }
-            } catch (error: any) {
-                this.logger.error(`Error loading spawn data from ${absoluteFilePath}:${error.message}`);
+            } catch (error) {
+                this.logger.error(
+                    `Error loading spawn data from ${absoluteFilePath}: ${error instanceof Error ? error.message : String(error)}`,
+                );
             }
         }
 

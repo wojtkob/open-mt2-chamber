@@ -38,6 +38,11 @@ export default abstract class Server {
 
     setup() {
         this.server = createServer(this.onListener.bind(this));
+        // Keeps a late socket error (after a successful listen) from becoming an
+        // uncaught 'error' event that would take the whole process down.
+        this.server.on('error', (error: Error) => {
+            this.logger.error(`[SERVER] Socket server error: ${error.message}`);
+        });
         return this;
     }
 
@@ -218,11 +223,29 @@ export default abstract class Server {
     }
 
     start(): Promise<void> {
-        return new Promise((resolve) => {
-            this.server.listen(this.config.SERVER_PORT, Number(this.config.SERVER_ADDRESS), () => {
+        const port = Number(this.config.SERVER_PORT);
+        const address = Number(this.config.SERVER_ADDRESS);
+
+        return new Promise((resolve, reject) => {
+            // Without this the promise stayed pending forever on EADDRINUSE or
+            // EACCES: the process looked alive to systemd while never listening.
+            const onError = (error: Error) => {
+                this.server.removeListener('listening', onListening);
+                this.logger.error(
+                    `[SERVER] Failed to listen on ${this.config.SERVER_ADDRESS}:${this.config.SERVER_PORT}: ${error.message}`,
+                );
+                reject(error);
+            };
+
+            const onListening = () => {
+                this.server.removeListener('error', onError);
                 this.logger.info(`Server running on: ${this.config.SERVER_ADDRESS}:${this.config.SERVER_PORT} 🔥 `);
                 resolve();
-            });
+            };
+
+            this.server.once('error', onError);
+            this.server.once('listening', onListening);
+            this.server.listen(port, address);
         });
     }
 

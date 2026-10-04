@@ -45,12 +45,15 @@ const createEntity = (x: number, y: number) => {
     };
 };
 
+const silentLogger = { info: () => {}, error: () => {}, debug: () => {} } as any;
+
 const buildArea = (attrDir: string, entities: any[] = [], mapName = 'test_map') => {
     const area = new Area(
         { name: mapName, positionX: 0, positionY: 0, width: 1, height: 1 },
         {
             spawnManager: { getEntities: sinon.stub().resolves(entities) } as any,
             entityManager: { addEntity: sinon.stub(), removeEntity: sinon.stub() } as any,
+            logger: silentLogger,
         },
     );
     sinon.stub(process, 'cwd').returns(attrDir);
@@ -143,6 +146,7 @@ describe('Area map attributes', () => {
             {
                 spawnManager: { getEntities } as any,
                 entityManager: { addEntity: sinon.stub(), removeEntity: sinon.stub() } as any,
+                logger: silentLogger,
             },
         );
         sinon.stub(process, 'cwd').returns(tmpDir);

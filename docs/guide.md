@@ -48,3 +48,30 @@ ps: `npm run dev:auth:debug` / `npm run dev:game:debug` run the same servers wit
 login: admin
 password: admin
 ```
+
+## Production build
+
+```bash
+npm run build          # tsc + tsc-alias, then copies the runtime assets into dist/
+npm run verify:dist    # fails if dist/ is missing assets or has unresolved imports
+npm run auth:prod      # node dist/auth/main.js
+npm run game:prod      # node dist/game/main.js
+```
+
+`npm run build` copies the files `tsc` does not emit — the per-map walkability
+grids (`*.attr.gz`), the per-map spawn tables and the database schema — into
+`dist/`, so the compiled tree is self-contained. The servers locate those assets
+through `src/core/infra/config/RuntimePaths.ts`, which is anchored on the
+installation root and therefore independent of the working directory.
+
+`node --env-file=.env` is optional: `src/core/infra/config/env.ts` reads `.env`
+(or the file named by `OPEN_MT2_ENV_FILE`) at boot when the variable is not
+already set, which is what lets the packaged install read
+`/etc/open-mt2/open-mt2.env`.
+
+## ARM64 / Pine A64
+
+See [**docs/arm64.md**](arm64.md) for the installable package, the systemd
+services and the ARM64 CI pipeline.
+
+## Commands

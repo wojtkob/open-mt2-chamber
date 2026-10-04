@@ -76,6 +76,38 @@ Metin2 are copyrighted by [Webzen](http://webzen.com/ "Webzen").
 
 - Follow this [**guide**](docs/guide.md)
 
+## Running on ARM64 (Pine A64 / Armbian)
+
+open-mt2 is pure TypeScript with **no native addons**, so the compiled `dist/` tree
+is architecture neutral and one build runs on x86_64 and ARM64/AArch64 alike —
+there is no cross-compilation step.
+
+```bash
+npm ci
+npm run build            # compile + copy the runtime assets (map grids, spawn tables, schema)
+npm run verify:dist      # fails if dist/ is incomplete
+
+deploy/build-arm64.sh    # -> release/open-mt2-<version>-<arch>.tar.gz
+```
+
+Copy the tarball to the board and install it:
+
+```bash
+tar -xzf open-mt2-<version>-aarch64.tar.gz
+cd open-mt2-<version>-aarch64
+sudo ./deploy/install.sh
+```
+
+The installer provisions Node.js >= 20, MariaDB/MySQL and Redis when missing,
+creates the `openmt2` service account, writes `/etc/open-mt2/open-mt2.env`
+(detecting your LAN address), installs and enables `open-mt2-auth` and
+`open-mt2-game`, applies the database schema and starts both services.
+
+Full walkthrough, configuration reference, installer options and tuning notes:
+[**docs/arm64.md**](docs/arm64.md).
+
+`npm run package:arm64` runs the packaging step through npm.
+
 ## Packets
 
 - Read the packet [**documentation**](docs/packets.md) (work in progress)

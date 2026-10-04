@@ -8,3 +8,4 @@ motionData
 coverage
 .nyc_output
 dist
+release
