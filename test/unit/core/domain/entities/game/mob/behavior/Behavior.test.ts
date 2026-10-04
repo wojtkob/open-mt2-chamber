@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import Behavior from '@/core/domain/entities/game/mob/behavior/Behavior';
 import MapAttributeGrid from '@/core/util/MapAttributeGrid';
+import MathUtil from '@/core/domain/util/MathUtil';
 import { MapAttributeFlagEnum } from '@/core/enum/MapAttributeFlagEnum';
 import { EntityStateEnum } from '@/core/enum/EntityStateEnum';
 
@@ -52,11 +53,24 @@ const wander = (behavior: Behavior) => {
     behavior.idleState();
 };
 
+/**
+ * Pins the wander offset instead of drawing it.
+ *
+ * moveToRandomLocation picks each axis with getRandomInt(-600, 600), so the
+ * destination lands on the monster's own free cell whenever both draws come back
+ * 0. That is a 1-in-1.5-million draw, which is exactly the kind of flake that
+ * turns a red CI run into a mystery: it failed a Release Build on 2026-10-04
+ * with no code change involved. A fixed non-zero offset makes the wander
+ * deterministic; `sinon.restore()` in afterEach puts the real one back.
+ */
+const pinWanderOffset = (offset: number) => sinon.stub(MathUtil, 'getRandomInt').returns(offset);
+
 describe('Behavior map attribute awareness', () => {
     afterEach(() => sinon.restore());
 
     describe('idle wander', () => {
         it('should move when the destination and the halfway point are free', () => {
+            pinWanderOffset(300);
             const monster = createMonster(buildGrid(16, 16, []));
             const behavior = new Behavior(monster as any);
             behavior.init();
@@ -67,6 +81,7 @@ describe('Behavior map attribute awareness', () => {
         });
 
         it('should skip the wander when the destination is blocked', () => {
+            pinWanderOffset(300);
             // Everything blocked except the monster's own cell (5,5).
             const cells: Array<[number, number, number]> = [];
             for (let y = 0; y < 16; y++)
@@ -82,6 +97,7 @@ describe('Behavior map attribute awareness', () => {
         });
 
         it('should skip the wander when only the halfway point is blocked', () => {
+            pinWanderOffset(300);
             // Monster at (500,500) = cell (5,5). Block a ring of cells around it
             // so any destination's midpoint falls on a blocked cell.
             const cells: Array<[number, number, number]> = [];
@@ -100,6 +116,9 @@ describe('Behavior map attribute awareness', () => {
             // the blocked ring while midpoints land inside it.
             for (let i = 0; i < 20; i++) wander(behavior);
 
+            // A free destination is not enough; the midpoint decides too.
+            expect(monster.goto.called).to.be.equal(false);
+
             for (const call of monster.goto.getCalls()) {
                 const [x, y] = call.args;
                 const midX = (500 + x) / 2;
@@ -109,6 +128,7 @@ describe('Behavior map attribute awareness', () => {
         });
 
         it('should always move on maps without attribute data', () => {
+            pinWanderOffset(300);
             const monster = createMonster(undefined);
             const behavior = new Behavior(monster as any);
             behavior.init();
