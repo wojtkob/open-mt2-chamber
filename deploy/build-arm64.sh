@@ -29,7 +29,7 @@ cd "${PROJECT_ROOT}"
 ARCH="$(uname -m)"
 OUT_DIR="${PROJECT_ROOT}/release"
 SKIP_INSTALL_CHECK=false
-MIN_NODE_MAJOR=20
+MIN_NODE_MAJOR=22
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m==> WARNING:\033[0m %s\n' "$*" >&2; }
