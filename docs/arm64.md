@@ -17,7 +17,7 @@ under QEMU and the packaged tree is smoke-tested on AArch64.
 
 ## 1. Build the package
 
-From a checkout (any architecture, Node.js >= 20 required):
+From a checkout (any architecture, Node.js >= 22 required):
 
 ```bash
 npm ci
@@ -58,9 +58,9 @@ The installer:
 
 1. detects the architecture and warns if MariaDB/MySQL or Redis are missing
    (`--skip-deps` to skip installing them),
-2. makes sure Node.js >= 20 is present, adding the NodeSource repository when the
+2. makes sure Node.js >= 22 is present, adding the NodeSource repository when the
    distribution ships something older (Armbian's own `nodejs` package is often
-   below 20),
+   below 22, and the servers need `Promise.withResolvers`),
 3. creates the `openmt2` system account, `/opt/open-mt2` and `/var/log/open-mt2`,
 4. writes `/etc/open-mt2/open-mt2.env` from the annotated template, detecting
    your LAN address for `REAL_SERVER_ADDRESS`,

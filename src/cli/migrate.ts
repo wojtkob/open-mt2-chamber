@@ -1,6 +1,9 @@
 import DatabaseManager from '@/core/infra/database/DatabaseManager';
 import { makeConfig } from '@/core/infra/config/Config';
 import Logger from '@/core/infra/logger/Logger';
+import { assertSupportedRuntime } from '@/core/util/nodeVersion';
+
+assertSupportedRuntime();
 
 /**
  * Logger writing to the console, so the migrator can run outside the servers

@@ -27,7 +27,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['20', '22', '24']
+        # 22 is the floor: the quests use Promise.withResolvers, which older
+        # runtimes lack. See src/core/util/nodeVersion.ts.
+        node: ['22', '24']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

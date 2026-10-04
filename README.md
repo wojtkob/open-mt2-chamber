@@ -98,7 +98,7 @@ cd open-mt2-<version>-aarch64
 sudo ./deploy/install.sh
 ```
 
-The installer provisions Node.js >= 20, MariaDB/MySQL and Redis when missing,
+The installer provisions Node.js >= 22, MariaDB/MySQL and Redis when missing,
 creates the `openmt2` service account, writes `/etc/open-mt2/open-mt2.env`
 (detecting your LAN address), installs and enables `open-mt2-auth` and
 `open-mt2-game`, applies the database schema and starts both services.
