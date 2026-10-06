@@ -1,12 +1,13 @@
-version: "3.8"
 services:
   auth-server:
     build:
       context: .
       dockerfile: Dockerfile
+    image: "${OPEN_MT2_IMAGE:-open-mt2:local}"
+    pull_policy: "${OPEN_MT2_PULL_POLICY:-missing}"
     container_name: auth-server
     networks:
-     - server
+      - server
     env_file:
       - ./.env
     restart: always
@@ -25,9 +26,11 @@ services:
       CACHE_HOST: cache
       NODE_ENV: production
     depends_on:
-      - cache
-      - database
-    command: ["node","src/auth/main.js"]
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    command: ["node", "dist/auth/main.js"]
     deploy:
       resources:
         limits:
@@ -38,6 +41,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: "${OPEN_MT2_IMAGE:-open-mt2:local}"
+    pull_policy: "${OPEN_MT2_PULL_POLICY:-missing}"
     container_name: game-server
     env_file:
       - ./.env
@@ -45,7 +50,7 @@ services:
     ports:
       - "${GAME_SERVER_PORT}:${GAME_SERVER_PORT}"
     networks:
-     - server
+      - server
     environment:
       GAME_SERVER_PORT: "${GAME_SERVER_PORT}"
       GAME_SERVER_ADDRESS: "0.0.0.0"
@@ -60,9 +65,11 @@ services:
       CACHE_HOST: cache
       NODE_ENV: production
     depends_on:
-      - cache
-      - database
-    command: ["node", "--max-old-space-size=2048", "src/game/main.js"]
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    command: ["node", "--max-old-space-size=2048", "dist/game/main.js"]
     deploy:
       resources:
         limits:
@@ -70,22 +77,31 @@ services:
           cpus: "2"
 
   cache:
-    image: redis:latest
+    # `redis:*-alpine` publishes linux/arm64v8, unlike some legacy tags.
+    image: "${CACHE_IMAGE:-redis:7-alpine}"
     restart: unless-stopped
     container_name: cache
     networks:
-     - server
+      - server
     env_file:
       - ./.env
     ports:
       - "${CACHE_PORT}:${CACHE_PORT}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   database:
-    image: mysql:5.7
+    # The stock `mysql:5.7` image has no linux/arm64 build; 8.0 does and is the
+    # closest drop-in replacement. Override with DB_IMAGE=mariadb:11 if you
+    # prefer MariaDB (Armbian ships it as a native package).
+    image: "${DB_IMAGE:-mysql:8.0}"
     container_name: database
     restart: always
     networks:
-     - server
+      - server
     env_file:
       - ./.env
     environment:
@@ -96,7 +112,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
     healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","127.0.0.1"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 5

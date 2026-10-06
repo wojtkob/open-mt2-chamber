@@ -1,0 +1,177 @@
+# Standalone ARM64 (aarch64) deployment — Pine A64, Raspberry Pi 4/5, Ampere,
+# Graviton, Orange Pi, Rock 3A…
+#
+#   docker compose -f docker-compose.arm64.yml up -d
+#
+# It is intentionally a *complete* file rather than an override of
+# `docker-compose.yml`, so it can be copied to the board on its own. Everything
+# differs from the generic compose file in exactly one way: every image and the
+# build platform are pinned to linux/arm64, and the resource limits fit a
+# 2 GB board.
+#
+# `mysql:5.7` (used by older revisions of `docker-compose.yml`) publishes no
+# arm64 manifest at all, so `DB_IMAGE` defaults to `mysql:8.0` here. Override it
+# with `mariadb:11` (also arm64v8) if you prefer MariaDB.
+services:
+  auth-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "${OPEN_MT2_IMAGE:-open-mt2:local}"
+    pull_policy: "${OPEN_MT2_PULL_POLICY:-missing}"
+    platform: linux/arm64
+    container_name: auth-server
+    networks:
+      - server
+    env_file:
+      - ./.env
+    restart: always
+    ports:
+      - "${AUTH_SERVER_PORT}:${AUTH_SERVER_PORT}"
+    environment:
+      AUTH_SERVER_PORT: "${AUTH_SERVER_PORT}"
+      AUTH_SERVER_ADDRESS: "0.0.0.0"
+      LOG_LEVEL: "${LOG_LEVEL}"
+      DB_PORT: "${DB_PORT}"
+      DB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      AUTH_DB_DATABASE_NAME: "${AUTH_DB_DATABASE_NAME}"
+      DB_USER: "${DB_USER}"
+      CACHE_PORT: "${CACHE_PORT}"
+      DB_HOST: database
+      CACHE_HOST: cache
+      NODE_ENV: production
+    depends_on:
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    command: ["node", "dist/auth/main.js"]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('node:net').connect({host:'127.0.0.1',port:Number(process.env.AUTH_SERVER_PORT)},function(){process.exit(0)}).on('error',function(){process.exit(1)})"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+
+  game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "${OPEN_MT2_IMAGE:-open-mt2:local}"
+    pull_policy: "${OPEN_MT2_PULL_POLICY:-missing}"
+    platform: linux/arm64
+    container_name: game-server
+    env_file:
+      - ./.env
+    restart: always
+    ports:
+      - "${GAME_SERVER_PORT}:${GAME_SERVER_PORT}"
+    networks:
+      - server
+    environment:
+      GAME_SERVER_PORT: "${GAME_SERVER_PORT}"
+      GAME_SERVER_ADDRESS: "0.0.0.0"
+      REAL_SERVER_ADDRESS: "${GAME_SERVER_ADDRESS}"
+      LOG_LEVEL: "${LOG_LEVEL}"
+      DB_PORT: "${DB_PORT}"
+      DB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      GAME_DB_DATABASE_NAME: "${GAME_DB_DATABASE_NAME}"
+      DB_USER: "${DB_USER}"
+      CACHE_PORT: "${CACHE_PORT}"
+      DB_HOST: database
+      CACHE_HOST: cache
+      NODE_ENV: production
+    depends_on:
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    # A Pine A64 has 2-4 GB of RAM shared with the database: cap the V8 heap
+    # below the container limit so the collector runs before the OOM killer.
+    command: ["node", "--max-old-space-size=1024", "dist/game/main.js"]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('node:net').connect({host:'127.0.0.1',port:Number(process.env.GAME_SERVER_PORT)},function(){process.exit(0)}).on('error',function(){process.exit(1)})"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1400M
+          cpus: "2.0"
+
+  cache:
+    image: "${CACHE_IMAGE:-redis:7-alpine}"
+    platform: linux/arm64
+    restart: unless-stopped
+    container_name: cache
+    networks:
+      - server
+    env_file:
+      - ./.env
+    ports:
+      - "${CACHE_PORT}:${CACHE_PORT}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+
+  database:
+    image: "${DB_IMAGE:-mysql:8.0}"
+    platform: linux/arm64
+    container_name: database
+    restart: always
+    networks:
+      - server
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_ROOT_HOST: '%'
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb-buffer-pool-size=128M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+volumes:
+  dbdata: {}
+
+networks:
+  server:
+    name: server
+    driver: bridge
