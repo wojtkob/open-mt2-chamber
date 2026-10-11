@@ -39,6 +39,17 @@ const FIXED_CLIENT_FRAME_LENGTH: Readonly<Record<number, number>> = {
     [PacketHeaderEnum.MARK_LOGIN]: 9,
     [PacketHeaderEnum.INTERNAL_PING]: 5,
     [PacketHeaderEnum.CLIENT_VERSION]: 68,
+    // In-game client verbs. Each is the writer size plus the trailing sequence
+    // byte; the bridge tests exercise gameplay over real sockets.
+    [PacketHeaderEnum.CHARACTER_MOVE]: 17,
+    [PacketHeaderEnum.ATTACK]: 9,
+    [PacketHeaderEnum.TARGET]: 6,
+    [PacketHeaderEnum.ITEM_USE]: 5,
+    [PacketHeaderEnum.ITEM_PICKUP]: 6,
+    [PacketHeaderEnum.ON_CLICK]: 6,
+    [PacketHeaderEnum.QUEST_ANSWER]: 3,
+    [PacketHeaderEnum.QUICK_SLOT_ADD_REQUEST]: 5,
+    [PacketHeaderEnum.SHOOT]: 3,
 };
 
 /** `number` = length, `null` = need more bytes, `undefined` = unknown header. */

@@ -49,6 +49,15 @@ export type ShopState = {
     entries: Map<number, ShopEntry>;
 };
 
+/** A dropped ground item the world still shows. */
+export type DroppedItem = {
+    vid: number;
+    id: number;
+    positionX: number;
+    positionY: number;
+    positionZ: number;
+};
+
 /** An active effect on the local player (GC_AFFECT_ADD has no victim vid). */
 export type SelfAffect = {
     affectType: number;
@@ -86,10 +95,7 @@ const MAX_CHAT_LOG = 500;
 export default class GameState extends TypedEventEmitter<GameStateEvents> {
     private readonly entitiesByVid = new Map<number, EntityState>();
     private readonly items = new Map<string, ItemSnapshot>();
-    private readonly droppedItems = new Map<
-        number,
-        { vid: number; id: number; positionX: number; positionY: number; positionZ: number }
-    >();
+    private readonly droppedItems = new Map<number, DroppedItem>();
     private readonly chatEntries: ChatEntry[] = [];
     private points: number[] = [];
     private skills: SkillInfo[] = [];
@@ -356,6 +362,10 @@ export default class GameState extends TypedEventEmitter<GameStateEvents> {
 
     getDroppedItem(vid: number) {
         return this.droppedItems.get(vid);
+    }
+
+    getDroppedItems(): DroppedItem[] {
+        return [...this.droppedItems.values()];
     }
 
     getPoints(): number[] {
