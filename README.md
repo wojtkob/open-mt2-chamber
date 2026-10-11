@@ -123,6 +123,27 @@ the release (both architectures) while you downloaded only one.
 ## Packets
 
 - Read the packet [**documentation**](docs/packets.md) (work in progress)
+
+## Client
+
+Open MT2 includes a TypeScript client (library + CLI) that speaks the same wire
+protocol as the TMP4 client, so you can script a login or smoke-test a server
+without the game client:
+
+```bash
+npm run dev:client -- status          # ask the auth server for its channel status
+npm run dev:client -- login           # auth + token flow, print the character list
+npm run dev:client -- play -m "hello" # login, select, enter the game and chat
+
+# after `npm run build`:
+npm run client -- play --json
+```
+
+Connection settings come from flags, `CLIENT_*` variables, the server variables
+or the `127.0.0.1` / `admin` defaults. The same code is a library — see the
+client [**documentation**](docs/client.md) for `Metin2Client`, the world-state
+model and the typed error codes.
+
   
 ## Questing
 
