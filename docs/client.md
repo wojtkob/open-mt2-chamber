@@ -163,7 +163,7 @@ can branch without matching message text:
 | `AUTH_FAILED` | `AuthError` | Login/token rejected; carries `status` (`WRONGPWD`, `ALREADY`, `CLOSED`, ...). |
 | `PROTOCOL` | `ProtocolError` | A frame cannot be framed or decoded. |
 | `INVALID_STATE` | `InvalidStateError` | A verb ran in the wrong connection phase. |
-| `INVALID_ARGUMENT` | `InvalidArgumentError` | Bad CLI flag or argument. |
+| `INVALID_ARGUMENT` | `InvalidArgumentError` | Bad CLI flag/argument, or `play` on an account/slot with no character. |
 | `SERVER_REJECTED` | `ServerRejectedError` | The server refused an action; carries `reason`. |
 
 The transport never swallows errors: connection-level failures surface on the

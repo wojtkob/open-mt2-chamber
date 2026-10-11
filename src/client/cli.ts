@@ -2,6 +2,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Metin2Client, { DEFAULT_AUTH_PORT, DEFAULT_GAME_PORT } from './Metin2Client';
+import type { CharacterSummary } from './protocol/ServerPackets';
 import { ClientError, InvalidArgumentError } from './errors';
 
 /**
@@ -58,7 +59,23 @@ Options:
 
 const BOOLEAN_FLAGS = new Set(['--json', '-h', '--help']);
 
-function parseArgs(argv: string[]): CliOptions {
+const VALUE_FLAGS = new Set([
+    '--auth-host',
+    '--auth-port',
+    '--game-host',
+    '--game-port',
+    '--username',
+    '-u',
+    '--password',
+    '-p',
+    '--slot',
+    '-s',
+    '--message',
+    '-m',
+    '--seconds',
+]);
+
+export function parseArgs(argv: string[]): CliOptions {
     const options: CliOptions = {
         command: '',
         authHost: null,
@@ -82,8 +99,11 @@ function parseArgs(argv: string[]): CliOptions {
                 if (arg === '-h' || arg === '--help') options.help = true;
                 continue;
             }
+            if (!VALUE_FLAGS.has(arg)) {
+                throw new InvalidArgumentError(`Unknown option: ${arg}`);
+            }
             const value = argv[++i];
-            if (value === undefined && arg !== '-h' && arg !== '--help') {
+            if (value === undefined) {
                 throw new InvalidArgumentError(`Missing value for ${arg}`);
             }
             switch (arg) {
@@ -137,6 +157,27 @@ function parsePort(flag: string, value: string): number {
         throw new InvalidArgumentError(`Invalid number for ${flag}: ${value}`);
     }
     return numeric;
+}
+
+/**
+ * Pick the character slot to enter the world with.
+ *
+ * `requestedSlot` is the explicit `--slot` value, or `null` to fall back to the
+ * first occupied slot. Throws an {@link InvalidArgumentError} when the account
+ * has no characters to play, or when the requested slot is empty.
+ */
+export function resolveCharacterSlot(characters: readonly CharacterSummary[], requestedSlot: number | null): number {
+    if (requestedSlot === null) {
+        if (characters.length === 0) {
+            throw new InvalidArgumentError('This account has no characters to play; create one first (or pass --slot)');
+        }
+        return characters[0].slot;
+    }
+
+    if (!characters.some((character) => character.slot === requestedSlot)) {
+        throw new InvalidArgumentError(`No character on slot ${requestedSlot}`);
+    }
+    return requestedSlot;
 }
 
 /** Minimal .env reader so the CLI works without `--env-file`. Existing keys win. */
@@ -281,9 +322,10 @@ async function runPlay(
     });
 
     const characters = client.game.getCharacters();
-    const chosenSlot = slot ?? characters[0].slot;
+    const chosenSlot = resolveCharacterSlot(characters, slot);
     const character = characters.find((entry) => entry.slot === chosenSlot);
     if (!character) {
+        // resolveCharacterSlot guarantees this, but keep the compiler happy without a non-null assertion.
         throw new InvalidArgumentError(`No character on slot ${chosenSlot}`);
     }
 
@@ -381,14 +423,23 @@ async function main(): Promise<void> {
 }
 
 const SIGNALS: Array<NodeJS.Signals> = ['SIGINT', 'SIGTERM'];
-SIGNALS.forEach((signal) => {
-    process.on(signal, () => {
-        console.log('\ndisconnecting…');
-        process.exit(0);
-    });
-});
 
-void main().catch((error: unknown) => {
-    console.error(`fatal: ${error instanceof Error ? error.stack : String(error)}`);
-    process.exit(1);
-});
+function start(): void {
+    SIGNALS.forEach((signal) => {
+        process.on(signal, () => {
+            console.log('\ndisconnecting…');
+            process.exit(0);
+        });
+    });
+
+    void main().catch((error: unknown) => {
+        console.error(`fatal: ${error instanceof Error ? error.stack : String(error)}`);
+        process.exit(1);
+    });
+}
+
+// Only run when invoked as the entry point (`node dist/client/cli.js`); importing
+// the module for tests must not connect, exit or hijack process signals.
+if (require.main === module) {
+    start();
+}
