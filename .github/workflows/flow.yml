@@ -37,12 +37,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Install web client dependencies
+        run: npm --prefix web ci --ignore-scripts
+
       - name: Check Prettier formatting
         run: npm run format:check
+
+      - name: Check web client Prettier formatting
+        run: npm run format:web:check
 
       - name: Run ESLint
         run: npm run lint
@@ -50,8 +59,14 @@ jobs:
       - name: Build
         run: npm run build:clean
 
+      - name: Build web client
+        run: npm run build:web
+
       - name: Run unit tests with coverage
         run: npm run test:coverage
+
+      - name: Run web client tests
+        run: npm run test:web
 
       - name: Upload coverage report
         if: always()

@@ -144,6 +144,28 @@ or the `127.0.0.1` / `admin` defaults. The same code is a library — see the
 client [**documentation**](docs/client.md) for `Metin2Client`, the world-state
 model and the typed error codes.
 
+## Web client
+
+There is also a **visual client**: a browser UI (login, character select, the
+game HUD, chat, inventory and a protocol-debug panel) backed by a small Node
+bridge that reuses the client library.
+
+```bash
+npm --prefix web install        # the SPA has its own package.json
+npm run build && npm run build:web
+
+npm run dev:auth                # auth server
+npm run dev:game                # game server
+npm run web                     # bridge + SPA  → http://127.0.0.1:8080
+```
+
+While developing, `npm run dev:webclient` and `npm run dev:web` run the bridge
+and a hot-reloading Vite dev server (which proxies `/api` to the bridge). The
+bridge exposes the session over REST + SSE and serves the built SPA from
+`web/dist` (or `dist/webclient/static` once packaged); see the web client
+[**documentation**](docs/web-client.md) for the endpoints, the SSE event
+contract and the environment variables.
+
   
 ## Questing
 

@@ -65,6 +65,26 @@ It picks up the same `AUTH_SERVER_PORT` / `GAME_SERVER_PORT` /
 The client is also a library (login flow, typed gameplay verbs, an in-memory
 world state); see [client.md](client.md).
 
+## Visual web client (play from the browser)
+
+Prefer a UI? The repository also ships a browser client: a React SPA plus a
+small Node bridge that speaks the same protocol. Install the SPA's own
+dependencies once, then run the bridge next to the servers:
+
+```bash
+npm --prefix web install
+npm run dev:auth        # terminal 1
+npm run dev:game        # terminal 2
+npm run web             # terminal 3 → http://127.0.0.1:8080
+```
+
+Sign in with `admin` / `admin`, pick a character and play from the page — the
+HUD, nearby entities, chat, inventory and a protocol-debug panel are all wired
+to the live session. For hot-reloading development, run `npm run dev:webclient`
+and `npm run dev:web` instead of `npm run web`. See
+[web-client.md](web-client.md) for the full setup, the HTTP/SSE API and the
+configuration.
+
 ## Production build and deployment
 
 The development workflow above runs TypeScript directly through `ts-node`. For a real

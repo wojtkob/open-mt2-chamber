@@ -6,7 +6,10 @@ import tseslint from "typescript-eslint";
 export default [
   // `dist/` is the compiled output and `build/` holds the release staging tree
   // (which embeds its own `dist/` and `node_modules/`); neither is source.
-  { ignores: ["dist", "build"] },
+  // `web/` is a separate package (React + Vite) with its own tsconfig, ESLint
+  // scope and build; it is type-checked and Prettier-checked on its own, so the
+  // root program (whose globs do not cover `.tsx`) does not lint it.
+  { ignores: ["dist", "build", "web"] },
   { files: ["**/*.{js,mjs,cjs,ts}"] },
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
   { languageOptions: { globals: globals.browser } },
