@@ -49,6 +49,22 @@ login: admin
 password: admin
 ```
 
+## Bundled client (no game client needed)
+
+The repository ships a Node client that speaks the same protocol, so you can
+verify the servers from the terminal:
+
+```bash
+npm run dev:client -- status   # auth server channel status
+npm run dev:client -- login    # full auth + token flow, prints the characters
+npm run dev:client -- play     # login, select, enter the game and stay connected
+```
+
+It picks up the same `AUTH_SERVER_PORT` / `GAME_SERVER_PORT` /
+`REAL_SERVER_ADDRESS` values from `.env`, and defaults to `admin` / `admin`.
+The client is also a library (login flow, typed gameplay verbs, an in-memory
+world state); see [client.md](client.md).
+
 ## Production build and deployment
 
 The development workflow above runs TypeScript directly through `ts-node`. For a real
