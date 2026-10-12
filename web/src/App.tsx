@@ -1,12 +1,16 @@
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Toasts } from './components/Toasts';
 import { useVisualSession } from './hooks/useVisualSession';
 import { CharacterSelectScreen } from './screens/CharacterSelectScreen';
 import { ConnectingScreen } from './screens/ConnectingScreen';
-import { GameScreen } from './screens/GameScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { connectionStateLabel } from './lib/enums';
+
+// The in-world screen (HUD, entity/chat/item/shop panels, protocol debug) is the
+// largest part of the UI and is only reachable after logging in, so it is split
+// into its own chunk and fetched on demand; the login path stays small.
+const GameScreen = lazy(() => import('./screens/GameScreen').then((module) => ({ default: module.GameScreen })));
 
 /** Root component: owns the session hook and routes between the four screens. */
 export default function App(): ReactNode {
@@ -34,7 +38,19 @@ export default function App(): ReactNode {
                     />
                 );
             case 'game':
-                return <GameScreen view={view} actions={actions} />;
+                return (
+                    <Suspense
+                        fallback={
+                            <ConnectingScreen
+                                stage="loading"
+                                lastError={null}
+                                onDisconnect={() => void actions.disconnect()}
+                            />
+                        }
+                    >
+                        <GameScreen view={view} actions={actions} />
+                    </Suspense>
+                );
             case 'idle':
             case 'disconnected':
                 return <LoginScreen defaults={view.defaults} lastError={view.lastError} onLogin={actions.login} />;
