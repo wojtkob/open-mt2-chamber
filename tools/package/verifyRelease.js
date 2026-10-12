@@ -13,6 +13,8 @@
  *   - every file is listed with a POSIX path, readable mode and known type;
  *   - `dist/` contains no unresolved `@/` alias and no ESM `import` statement,
  *     i.e. the tree really is CommonJS and runs without `tsconfig-paths`;
+ *   - the shipped `package.json#engines.node` matches the source tree, and the
+ *     launcher's own `OPEN_MT2_MIN_NODE_MAJOR` agrees with it;
  *   - the `.deb` is a valid `ar` container with the three mandatory members;
  *   - `control` carries the required fields and the expected `Architecture`;
  *   - `md5sums` matches the payload, and the maintainer scripts are executable.
@@ -171,6 +173,30 @@ function namesOf(entries) {
     return new Set(entries.filter((entry) => entry.type !== '5').map((entry) => entry.name));
 }
 
+/**
+ * Pulls the major version out of an `engines.node` range: `>=22`, `^22.1.0`
+ * and `22.x` all mean 22. Returns null rather than NaN when nothing numeric is
+ * present, so the caller can say "this states no version" instead of comparing
+ * a missing value against a number and reporting a confusing mismatch.
+ */
+function nodeFloorOf(enginesNode) {
+    const match = /(\d+)/.exec(typeof enginesNode === 'string' ? enginesNode : '');
+
+    return match ? Number.parseInt(match[1], 10) : null;
+}
+
+/**
+ * Reads `OPEN_MT2_MIN_NODE_MAJOR=<n>` out of a launcher. A commented-out
+ * assignment deliberately does not match: a stale `# OPEN_MT2_MIN_NODE_MAJOR=20`
+ * left behind after a change is exactly the drift this is meant to catch, so it
+ * must not be allowed to read as the declared value.
+ */
+function declaredNodeFloorOf(scriptContents) {
+    const match = /^[ \t]*OPEN_MT2_MIN_NODE_MAJOR=(\d+)[ \t]*$/m.exec(scriptContents);
+
+    return match ? Number.parseInt(match[1], 10) : null;
+}
+
 // --------------------------------------------------------------- tarball check
 
 function verifyTarball(tarPath, report) {
@@ -215,6 +241,7 @@ function verifyTarball(tarPath, report) {
     }
 
     verifyCommonJs(entries, distPrefix, report);
+    verifyNodeFloor(entries, pkg.engines?.node, report);
 
     return { entries, files };
 }
@@ -264,6 +291,36 @@ function verifyCommonJs(entries, distPrefix, report) {
             `package.json engines.node must require at least Node 22, found "${pkg.engines?.node}"`,
         );
     }
+}
+
+/**
+ * The tarball states its minimum Node runtime twice: `package.json#engines.node`
+ * and `OPEN_MT2_MIN_NODE_MAJOR` in `bin/common.sh`. Nothing links the two, and
+ * 1.1.1 shipped with them disagreeing - the manifest asked for >=22 while the
+ * launcher accepted 20 - and every check here passed anyway, because only the
+ * manifest was read. `install.sh` trusts the manifest and replaces an old system
+ * Node, the launcher trusts its own constant on every subsequent start, so an
+ * artefact where they disagree is one where exactly one of them is right on the
+ * board. Requiring them to agree makes the artefact self-consistent, which is
+ * the only thing this gate can actually assert about a machine it cannot run on.
+ */
+function verifyNodeFloor(entries, expectedEngines, report) {
+    const launcher = entries.find((entry) => entry.type === '0' && entry.name.endsWith('/bin/common.sh'));
+    if (!report.check(launcher !== undefined, 'tarball is missing bin/common.sh')) {
+        return;
+    }
+
+    const expectedFloor = nodeFloorOf(expectedEngines);
+    const launcherFloor = declaredNodeFloorOf(launcher.data.toString('utf8'));
+
+    report.check(
+        launcherFloor !== null,
+        'bin/common.sh does not assign OPEN_MT2_MIN_NODE_MAJOR as a bare number',
+    );
+    report.check(
+        launcherFloor === expectedFloor,
+        `bin/common.sh declares the Node floor as ${launcherFloor}, but engines.node "${expectedEngines}" means ${expectedFloor}`,
+    );
 }
 
 // -------------------------------------------------------------------- deb check
@@ -420,9 +477,13 @@ function main() {
     report.summary();
 }
 
-try {
-    main();
-} catch (error) {
-    console.error(`[verify] ${error.message}`);
-    process.exit(1);
+module.exports = { Report, declaredNodeFloorOf, nodeFloorOf, verifyNodeFloor };
+
+if (require.main === module) {
+    try {
+        main();
+    } catch (error) {
+        console.error(`[verify] ${error.message}`);
+        process.exit(1);
+    }
 }
