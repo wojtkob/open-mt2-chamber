@@ -154,3 +154,13 @@ state, the full lifecycle, error mapping, static fallback, SSE) end to end.
 - The bridge holds **one** live session, which is what a single-player dev tool
   needs. It is not a multi-tenant gateway: anyone who can reach the port shares
   that session. Keep it on `127.0.0.1` unless you intend otherwise.
+
+## Play it on the desktop
+
+The same SPA and the same bridge are packaged as a **native Windows client**
+(`desktop/`): an Electron shell that runs the exact `BridgeServer` +
+`Metin2Client` code the web client uses, in-process, on an ephemeral loopback
+port, and opens the SPA as a desktop game window. Because it is the same code,
+its protocol compatibility with the open-mt2 servers is identical — see the
+[Windows client](windows-client.md) documentation for the installer, settings
+and the packaged artefacts.

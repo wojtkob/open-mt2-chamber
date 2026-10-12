@@ -87,6 +87,34 @@ describe('VisualSession', () => {
         expect(snapshot.defaults.auth.port).to.equal(authServer.port);
     });
 
+    it('setDefaults replaces the pre-filled endpoints and broadcasts a snapshot', () => {
+        session.setDefaults({
+            auth: { host: 'play.example.com', port: 2001 },
+            game: { host: 'play.example.com', port: 3001 },
+        });
+
+        const snapshot = session.getSnapshot();
+        expect(snapshot.defaults).to.deep.equal({
+            auth: { host: 'play.example.com', port: 2001 },
+            game: { host: 'play.example.com', port: 3001 },
+        });
+
+        // The change must reach SSE observers so the SPA re-renders.
+        const snapshots = events.filter(
+            (event): event is Extract<BridgeEvent, { type: 'snapshot' }> => event.type === 'snapshot',
+        );
+        expect(snapshots).to.not.have.lengthOf(0);
+        expect(snapshots[snapshots.length - 1].snapshot.defaults).to.deep.equal({
+            auth: { host: 'play.example.com', port: 2001 },
+            game: { host: 'play.example.com', port: 3001 },
+        });
+
+        // Updating again must not leak the previous values into the new ones.
+        session.setDefaults({ auth: { host: '10.0.0.2', port: 11002 }, game: { host: '10.0.0.2', port: 13001 } });
+        expect(session.getSnapshot().defaults.game.host).to.equal('10.0.0.2');
+        expect(session.getSnapshot().defaults.auth.port).to.equal(11002);
+    });
+
     it('runs login, character select and enter, exposing JSON-safe snapshots', async () => {
         const loggedIn = await session.login(loginRequest());
         expect(loggedIn.stage).to.equal('select');

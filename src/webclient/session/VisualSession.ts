@@ -164,6 +164,19 @@ export default class VisualSession extends TypedEventEmitter<VisualSessionEvents
         };
     }
 
+    /**
+     * Replace the server endpoints the login form (and API callers) pre-fill.
+     *
+     * The desktop client calls this when the user edits the server settings;
+     * an active session keeps working and the next login uses the new
+     * endpoints. Emits a `snapshot` event so SSE observers re-render.
+     */
+    setDefaults(defaults: { auth: BridgeEndpoint; game: BridgeEndpoint }): void {
+        this.defaults.auth = { ...defaults.auth };
+        this.defaults.game = { ...defaults.game };
+        this.emitSnapshot();
+    }
+
     // --- the login → select → enter flow ------------------------------------
 
     /**

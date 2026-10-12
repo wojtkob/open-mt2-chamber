@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "target": "es2024",
+        "lib": ["es2024"],
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": true,
+        "strict": true,
+        "rootDir": "..",
+        "resolveJsonModule": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "types": ["node", "mocha"],
+        "paths": {
+            "@/*": ["../src/*"]
+        }
+    },
+    "ts-node": {
+        "transpileOnly": true
+    },
+    "include": ["src", "test"],
+    "exclude": ["node_modules", "dist", "build"]
+}

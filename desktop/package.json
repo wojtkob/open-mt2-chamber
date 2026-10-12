@@ -1,0 +1,78 @@
+{
+    "name": "open-mt2-desktop-client",
+    "version": "1.1.2",
+    "description": "Native Windows client for the open-mt2 Metin2 server emulator: an Electron shell around the repository's own protocol client + game SPA.",
+    "author": {
+        "name": "open-mt2 contributors",
+        "url": "https://github.com/wojtkob/open-mt2-chamber"
+    },
+    "license": "GPL-3.0-only",
+    "homepage": "https://github.com/wojtkob/open-mt2-chamber",
+    "main": "dist/main.cjs",
+    "private": true,
+    "scripts": {
+        "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "test": "mocha --config test/.mocharc.json",
+        "icon": "node ../tools/desktop/generateIcon.js",
+        "bundle": "node ../tools/desktop/buildDesktop.js --skip-package",
+        "pack": "node ../tools/desktop/buildDesktop.js",
+        "verify": "node ../tools/desktop/verifyDesktop.js",
+        "smoke": "node ../tools/desktop/smokeDesktop.js",
+        "start": "node ../tools/desktop/buildDesktop.js --skip-package --skip-web && electron .",
+        "start:dev": "node ../tools/desktop/buildDesktop.js --skip-package --skip-web && electron . --dev-tools"
+    },
+    "build": {
+        "appId": "com.open-mt2.desktop-client",
+        "productName": "Open MT2",
+        "copyright": "Copyright © 2026 open-mt2 contributors",
+        "compression": "normal",
+        "directories": {
+            "output": "../build/windows",
+            "buildResources": "build"
+        },
+        "files": [
+            "dist/**/*",
+            "package.json"
+        ],
+        "asar": true,
+        "win": {
+            "target": [
+                "nsis",
+                "portable",
+                "zip"
+            ],
+            "icon": "build/icon.png",
+            "artifactName": "open-mt2-windows-${version}-${arch}.${ext}"
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Open MT2",
+            "deleteAppDataOnUninstall": false,
+            "runAfterFinish": true,
+            "artifactName": "OpenMT2-Setup-${version}-${arch}.${ext}"
+        },
+        "portable": {
+            "artifactName": "OpenMT2-Portable-${version}-${arch}.${ext}"
+        }
+    },
+    "devDependencies": {
+        "@types/chai": "^5.2.3",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^26.6.5",
+        "@types/sinon": "^22.0.0",
+        "chai": "^6.3.0",
+        "electron": "^44.7.0",
+        "electron-builder": "^26.15.3",
+        "esbuild": "^0.28.2",
+        "mocha": "^12.0.3",
+        "sinon": "^22.1.0",
+        "ts-node": "^10.9.2",
+        "tsconfig-paths": "^4.2.0",
+        "typescript": "^6.0.3"
+    }
+}

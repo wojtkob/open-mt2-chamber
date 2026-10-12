@@ -1,0 +1,73 @@
+name: Windows Client
+
+# Builds and audits the native Windows desktop client. The packaging chain
+# (electron-builder → NSIS) needs a Windows runner, so this is a dedicated job
+# on top of the CI gate. The artefacts are uploaded for inspection; publishing
+# them to a release is a manual step (see docs/windows-client.md).
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: windows-client-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows-client:
+    name: Build + verify Windows client
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+            desktop/package-lock.json
+
+      - name: Install server/web dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install web client dependencies
+        run: npm --prefix web ci --ignore-scripts
+
+      - name: Install desktop client dependencies
+        run: npm --prefix desktop ci --ignore-scripts
+
+      - name: Type-check the desktop client
+        run: npm run desktop:typecheck
+
+      - name: Run desktop client tests
+        run: npm run desktop:test
+
+      - name: Build + package the desktop client
+        run: npm run desktop:build
+
+      - name: Verify the Windows artefacts
+        run: npm run desktop:verify
+
+      - name: Smoke-test the packaged client
+        run: node tools/desktop/smokeDesktop.js
+
+      - name: Upload Windows client artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-mt2-windows-client
+          path: build/windows/
+          retention-days: 14
+          if-no-files-found: error

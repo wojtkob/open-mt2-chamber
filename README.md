@@ -166,6 +166,27 @@ bridge exposes the session over REST + SSE and serves the built SPA from
 [**documentation**](docs/web-client.md) for the endpoints, the SSE event
 contract and the environment variables.
 
+## Windows client
+
+There is also a **native Windows client**: an Electron shell (`desktop/`) that
+hosts the same bridge and SPA in-process and opens it as a desktop game window.
+Because it reuses the repository's own `src/webclient` bridge and `src/client`
+protocol library verbatim, its wire compatibility with the open-mt2 servers is
+structural, not emulated.
+
+```bash
+cd desktop && npm install      # Electron + electron-builder, once
+cd ..
+
+npm run desktop:build          # SPA + bundle + NSIS installer + portable EXE
+npm run desktop:verify         # audit the artefacts (asar content, sizes, SHA256SUMS)
+npm run desktop:start          # run the client against 127.0.0.1:11002/13001
+```
+
+The installer and portable executable land in `build/windows/`; see the Windows
+client [**documentation**](docs/windows-client.md) for the settings window,
+the command-line flags and how it is packaged.
+
   
 ## Questing
 

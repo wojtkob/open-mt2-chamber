@@ -9,7 +9,11 @@ export default [
   // `web/` is a separate package (React + Vite) with its own tsconfig, ESLint
   // scope and build; it is type-checked and Prettier-checked on its own, so the
   // root program (whose globs do not cover `.tsx`) does not lint it.
-  { ignores: ["dist", "build", "web"] },
+  // `desktop/dist` is the desktop client's esbuild output and `desktop/build`
+  // holds the generated app icon (a binary asset, not source).
+  {
+    ignores: ["dist", "build", "web", "desktop/dist", "desktop/build"],
+  },
   { files: ["**/*.{js,mjs,cjs,ts}"] },
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
   { languageOptions: { globals: globals.browser } },

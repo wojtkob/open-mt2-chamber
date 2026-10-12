@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Open MT2 · Server Settings</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0e14;
+            --panel: #12161f;
+            --border: #232a37;
+            --text: #d8dee9;
+            --muted: #818a9b;
+            --accent: #d9593a;
+            --accent-hover: #e56a48;
+            --ok: #7fbf7f;
+            --err: #e06c75;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, "Segoe UI", sans-serif;
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .header {
+            padding: 14px 20px 0;
+        }
+        .header h1 { margin: 0 0 2px; font-size: 17px; }
+        .header p { margin: 0; color: var(--muted); font-size: 12px; }
+        form { padding: 16px 20px 20px; }
+        fieldset {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 0 0 16px;
+            padding: 12px 14px 14px;
+            background: var(--panel);
+        }
+        legend { color: var(--muted); font-size: 12px; padding: 0 6px; }
+        .row { display: grid; grid-template-columns: 1fr 110px; gap: 8px; margin-bottom: 10px; align-items: center; }
+        .row:last-child { margin-bottom: 0; }
+        label { color: var(--text); }
+        .hint { color: var(--muted); font-size: 12px; }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            font: inherit;
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .row--account { grid-template-columns: 1fr; }
+        .checkbox { display: flex; gap: 8px; align-items: center; }
+        .actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+        button {
+            font: inherit;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            color: var(--text);
+        }
+        button:hover { border-color: var(--accent); }
+        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        button.primary:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.55; cursor: default; }
+        .status { margin-top: 12px; min-height: 18px; font-size: 12.5px; }
+        .status.is-ok { color: var(--ok); }
+        .status.is-error { color: var(--err); }
+        .status.is-info { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Server Settings</h1>
+        <p>Where the client connects to play. Leave the ports untouched unless your open-mt2 servers use custom ports.</p>
+    </div>
+
+    <form id="settings-form">
+        <fieldset>
+            <legend>Auth server (login / character select)</legend>
+            <div class="row">
+                <label for="auth-host">Host</label>
+                <input id="auth-host" name="auth-host" type="text" autocomplete="off" spellcheck="false" required />
+            </div>
+            <div class="row">
+                <label for="auth-port">Port</label>
+                <input id="auth-port" name="auth-port" type="number" min="1" max="65535" required />
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Game server (the world)</legend>
+            <div class="row">
+                <label for="game-host">Host</label>
+                <input id="game-host" name="game-host" type="text" autocomplete="off" spellcheck="false" required />
+            </div>
+            <div class="row">
+                <label for="game-port">Port</label>
+                <input id="game-port" name="game-port" type="number" min="1" max="65535" required />
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Login convenience</legend>
+            <div class="row row--account">
+                <div class="checkbox">
+                    <input id="remember-username" name="remember-username" type="checkbox" />
+                    <label for="remember-username">Remember my account name</label>
+                </div>
+            </div>
+            <div class="row">
+                <label for="username">Account name</label>
+                <input id="username" name="username" type="text" autocomplete="username" spellcheck="false" />
+            </div>
+        </fieldset>
+
+        <div class="actions">
+            <span id="status" class="status is-info" role="status"></span>
+            <button type="button" id="cancel">Cancel</button>
+            <button type="submit" class="primary" id="save">Save</button>
+        </div>
+    </form>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var api = window.openMt2;
+            var statusEl = document.getElementById('status');
+            var saveButton = document.getElementById('save');
+
+            function setStatus(kind, message) {
+                statusEl.className = 'status is-' + kind;
+                statusEl.textContent = message;
+            }
+
+            function setBusy(busy) {
+                saveButton.disabled = busy;
+            }
+
+            function fillForm(settings) {
+                document.getElementById('auth-host').value = settings.endpoints.auth.host;
+                document.getElementById('auth-port').value = String(settings.endpoints.auth.port);
+                document.getElementById('game-host').value = settings.endpoints.game.host;
+                document.getElementById('game-port').value = String(settings.endpoints.game.port);
+                document.getElementById('remember-username').checked = settings.account.rememberUsername;
+                document.getElementById('username').value = settings.account.rememberUsername ? settings.account.username : '';
+            }
+
+            function readForm() {
+                return {
+                    endpoints: {
+                        auth: {
+                            host: document.getElementById('auth-host').value.trim(),
+                            port: Number(document.getElementById('auth-port').value),
+                        },
+                        game: {
+                            host: document.getElementById('game-host').value.trim(),
+                            port: Number(document.getElementById('game-port').value),
+                        },
+                    },
+                    account: {
+                        rememberUsername: document.getElementById('remember-username').checked,
+                        username: document.getElementById('username').value.trim(),
+                    },
+                };
+            }
+
+            function validPort(value) {
+                return Number.isInteger(value) && value >= 1 && value <= 65535;
+            }
+
+            async function load() {
+                if (typeof api === 'undefined') {
+                    setStatus('error', 'The desktop bridge is unavailable.');
+                    return;
+                }
+                setStatus('info', 'Loading…');
+                try {
+                    fillForm(await api.getSettings());
+                    setStatus('info', '');
+                } catch (error) {
+                    setStatus('error', 'Could not load settings: ' + (error instanceof Error ? error.message : String(error)));
+                }
+            }
+
+            async function save(evt) {
+                evt.preventDefault();
+                var action = readForm();
+                if (!action.endpoints.auth.host || !action.endpoints.game.host) {
+                    setStatus('error', 'Both server hosts must be filled in.');
+                    return;
+                }
+                if (!validPort(action.endpoints.auth.port) || !validPort(action.endpoints.game.port)) {
+                    setStatus('error', 'Ports must be whole numbers between 1 and 65535.');
+                    return;
+                }
+                if (action.account.rememberUsername && action.account.username.length === 0) {
+                    setStatus('error', 'Enter an account name to remember, or uncheck the box.');
+                    return;
+                }
+                setBusy(true);
+                setStatus('info', 'Saving…');
+                try {
+                    await api.saveSettings(action);
+                    setStatus('ok', 'Saved. The new endpoints apply to the next login.');
+                } catch (error) {
+                    setStatus('error', 'Could not save settings: ' + (error instanceof Error ? error.message : String(error)));
+                } finally {
+                    setBusy(false);
+                }
+            }
+
+            document.getElementById('settings-form').addEventListener('submit', save);
+            document.getElementById('cancel').addEventListener('click', function () {
+                window.close();
+            });
+
+            void load();
+        })();
+    </script>
+</body>
+</html>
