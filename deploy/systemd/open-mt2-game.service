@@ -1,37 +1,47 @@
 [Unit]
-Description=open-mt2 game server (Metin2)
+Description=Open MT2 - game server
 Documentation=https://github.com/wojtkob/open-mt2-chamber
-After=network-online.target mariadb.service mysql.service redis-server.service redis.service
+After=network-online.target open-mt2-auth.service
 Wants=network-online.target
-Requires=open-mt2-auth.service
-After=open-mt2-auth.service
+# The game server still boots without Redis/MySQL being up (it retries through
+# the pool), so this is a soft ordering only.
+Wants=open-mt2-auth.service
 
 [Service]
 Type=simple
-User=__SERVICE_USER__
-Group=__SERVICE_GROUP__
-WorkingDirectory=__INSTALL_DIR__
-EnvironmentFile=__CONFIG_DIR__/open-mt2.env
-ExecStart=__NODE_BIN__ __INSTALL_DIR__/dist/game/main.js
+User=open-mt2
+Group=open-mt2
+WorkingDirectory=/opt/open-mt2
+EnvironmentFile=-/etc/open-mt2/env
+Environment=NODE_ENV=production
+Environment=OPEN_MT2_HOME=/opt/open-mt2
+Environment=OPEN_MT2_ENV_FILE=/etc/open-mt2/env
+Environment=OPEN_MT2_EXTRA_NODE_ARGS=--max-old-space-size=1024
+ExecStart=/opt/open-mt2/bin/open-mt2-game
 Restart=on-failure
-RestartSec=5
-# World.close() despawns players and flushes their state; allow time for it.
+RestartSec=10
+TimeoutStopSec=60
 KillSignal=SIGTERM
-TimeoutStopSec=30
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=open-mt2-game
 
-# Hardening: the servers only need to read their own installation and write logs.
 NoNewPrivileges=true
 PrivateTmp=true
-PrivateDevices=true
 ProtectSystem=full
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=__LOG_DIR__
+RestrictRealtime=true
+LockPersonality=true
+
+# The world, mobs and item prototypes are held in memory (items.json alone is
+# ~5MB of JSON). Give V8 an explicit heap cap so it collects before the kernel
+# or the cgroup OOM killer ends the process; MemoryMax must stay above it.
+# 1400M matches docker-compose.arm64.yml (heap 1024 / container 1400M).
+MemoryMax=1400M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=open-mt2-game
 
 [Install]
 WantedBy=multi-user.target

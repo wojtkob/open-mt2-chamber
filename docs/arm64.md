@@ -1,199 +1,390 @@
-# Running open-mt2 on ARM64 (Pine A64 / Armbian)
+# Running Open MT2 on ARM64 (Pine A64, Raspberry Pi, Ampere, Graviton)
 
-open-mt2 is a Node.js + TypeScript project with **no native addons**. Every
-dependency (`awilix`, `bcryptjs`, `mysql2`, `redis`, `winston`, `reflect-metadata`)
-is pure JavaScript, and all packet serialization goes through `Buffer` with
-explicit little-endian accessors. The compiled output in `dist/` is therefore
-architecture neutral: **the same package runs on x86_64 and on ARM64/AArch64**,
-and there is no cross-compilation step.
+Open MT2 is written in TypeScript and compiled to plain JavaScript. Every
+runtime dependency (`awilix`, `bcryptjs`, `cross-env`, `mysql2`, `redis`,
+`reflect-metadata`, `winston`) is pure JavaScript — there is **no native module,
+no `node-gyp` step and no compiler requirement**. The same `dist/` tree
+therefore runs unmodified on `linux/arm64`, `linux/amd64` and `linux/arm/v7`.
 
-What ARM64 does require is a *complete* runtime tree. The servers read their map
-grids, spawn tables and database schema from the filesystem, and `tsc` does not
-emit those. `npm run build` copies them into `dist/`, and
-`tools/verify-dist.js` fails the build if anything is missing.
+This guide covers the three ways to deploy on ARM64:
 
-Verified on the CI pipeline: the container image is built for `linux/arm64`
-under QEMU and the packaged tree is smoke-tested on AArch64.
+| Method | Best for | Notes |
+| --- | --- | --- |
+| [Release tarball / `.deb`](#1-install-from-a-release-package) | A board dedicated to the server | Recommended. Installs to `/opt/open-mt2` and registers two systemd services. |
+| [Docker Compose](#2-docker-compose) | Boards that already run Docker, or you want the MySQL/Redis containers too | `docker-compose.arm64.yml` pins `linux/arm64`. |
+| [From source](#3-run-from-source) | Developing on the board itself | Needs the full dev dependency tree. |
 
-## 1. Install a prebuilt package (recommended)
+Hardware notes for a Pine A64 class board (quad-core Cortex-A53, 2 GB):
 
-Every tag builds an installable package on the
-[releases page](https://github.com/wojtkob/open-mt2-chamber/releases):
+- Give the board at least **2 GB of RAM**. Add 2 GB of swap if the game server
+  is killed by the OOM killer.
+- The game server holds the whole world in memory. The shipped systemd unit and
+  `docker-compose.arm64.yml` both cap the V8 heap at 1024 MB
+  (`--max-old-space-size=1024`) inside a 1400 MB system/container limit, so V8
+  collects before the kernel or the cgroup OOM killer ends the process. If you
+  change either number, keep the limit above the heap cap.
+- Use an SD card of class 10 or better, or an external SSD; MySQL's InnoDB on a
+  slow card will dominate your latency.
+- Run MySQL/MariaDB and Redis **on the same board** for a private server, or
+  point `DB_HOST`/`CACHE_HOST` at another host.
 
-| Asset | Target |
-|-------|--------|
-| `open-mt2-<version>-aarch64.tar.gz` | Pine A64, Armbian, any ARM64 board |
-| `open-mt2-<version>-x86_64.tar.gz` | desktops and servers |
-| `*.tar.gz.sha256` | checksum for the matching archive |
+## 0. What changed for ARM64
 
-On the board:
+- `src/core/infra/config/ResourcePaths.ts` resolves every data directory from
+  the module's own location (`__dirname`) instead of `process.cwd()`, with the
+  `OPEN_MT2_DATA_DIR` environment variable as an override. The server can
+  therefore live in `/opt/open-mt2`, in a renamed directory, or inside a
+  container, and still find its map attributes, spawn data, quest scripts and
+  SQL bootstrap.
+- `npm run build` now also copies the runtime assets into `dist/`
+  (`tools/build/copyRuntimeAssets.js`), so a build output is self-contained and
+  relocatable.
+- `npm run migrate` no longer runs from `tools/` (which is not compiled): it
+  moved to `src/tools/database/migrate.ts`, compiled to
+  `dist/tools/database/migrate.js`, and the production launcher is
+  `bin/open-mt2-migrate` (`npm run migrate:prod`).
+- The Dockerfile no longer needs `tsconfig-paths` at runtime — `tsc-alias`
+  rewrites every `@/...` import during the build — and it ships the *complete*
+  `dist/` tree plus the map/spawn data.
+- The database image changed from `mysql:5.7` (which publishes **no** arm64
+  manifest) to `mysql:8.0`, and the cache image to `redis:7-alpine`. Both
+  publish `linux/arm64v8`. Override with `DB_IMAGE=mariadb:11` or
+  `CACHE_IMAGE=redis:7-alpine` as needed.
+- `docker-compose.yml`, `docker-compose.arm64.yml` and `docker-compose.dep.yml`
+  no longer pin `version:` (obsolete in Compose v2) and take the image tags from
+  `DB_IMAGE` / `CACHE_IMAGE` / `OPEN_MT2_IMAGE`.
 
-```bash
-tar -xzf open-mt2-<version>-aarch64.tar.gz
-cd open-mt2-<version>-aarch64
-sha256sum -c open-mt2-<version>-aarch64.tar.gz.sha256   # if you kept it next to it
-sudo ./deploy/install.sh
-```
+## 1. Install from a release package
 
-The archives are architecture neutral - the same `dist/` tree serves ARM64 and
-x86_64 - so the only difference is the archive name.
+### 1.1 Get the package
 
-Or use the multi-arch container image (`linux/amd64` and `linux/arm64`):
-
-```bash
-docker pull ghcr.io/wojtkob/open-mt2-chamber:latest
-```
-
-## 2. Build the package from source
-
-From a checkout (any architecture, Node.js >= 22 required):
-
-```bash
-npm ci
-npm run build          # tsc + tsc-alias, then copies the runtime assets
-npm run verify:dist    # fails if dist/ is incomplete
-```
-
-Produce the installable tarball:
-
-```bash
-deploy/build-arm64.sh --arch aarch64
-```
-
-The result is `release/open-mt2-<version>-aarch64.tar.gz` plus a `.sha256`
-checksum. It contains:
-
-```
-dist/            compiled servers, migrator, map grids, spawn tables, schema
-node_modules/    production dependencies only
-package.json     production manifest
-deploy/          install.sh, uninstall.sh, systemd units, env template
-```
-
-`build-arm64.sh` also smoke-tests the staged tree, so a package that cannot boot
-is never written.
-
-## 3. Install on the Pine A64
-
-Copy the tarball over and run the installer as root:
+From a GitHub release, or build it yourself on any machine:
 
 ```bash
-tar -xzf open-mt2-<version>-aarch64.tar.gz
-cd open-mt2-<version>-aarch64
-sudo ./deploy/install.sh
+npm ci --ignore-scripts
+npm run package          # writes build/release/
+```
+
+`npm run package` produces:
+
+```
+build/release/
+├── open-mt2-<version>-linux-arm64.tar.gz   # universal installer
+├── open-mt2_<version>_arm64.deb            # dpkg -i package
+├── SHA256SUMS                              # checksums
+└── open-mt2-<version>/                     # the staging tree, for inspection
+```
+
+The tarball is architecture independent, so `open-mt2-<version>-linux-amd64.tar.gz`
+and `open-mt2-<version>-linux-arm64.tar.gz` contain identical code. Verify it
+before trusting it:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+`node tools/package/verifyRelease.js --arch arm64` re-opens the archive and
+checks that every entry point, launcher and data file is present and
+executable — the same check the CI runs before publishing.
+
+### 1.2 Prepare the system
+
+```bash
+sudo apt-get update
+sudo apt-get install -y mariadb-server redis-server    # or use Docker, see below
+```
+
+On Armbian the equivalent packages are `mariadb-server` and `redis-server`.
+Armbian ships Node.js 20+ as `nodejs`, but the servers need **Node.js 22 or
+newer** (`Promise.withResolvers`), so many images ship too old a major version.
+`scripts/install.sh` installs a private 22.x runtime when it finds an older one;
+see [1.9 Node runtime](#19-node-runtime) if you set
+`OPEN_MT2_SKIP_NODE_DOWNLOAD=1`.
+
+### 1.3 Install from the tarball
+
+```bash
+tar -xzf open-mt2-<version>-linux-arm64.tar.gz
+cd open-mt2-<version>
+sudo ./scripts/install.sh
 ```
 
 The installer:
 
-1. detects the architecture and warns if MariaDB/MySQL or Redis are missing
-   (`--skip-deps` to skip installing them),
-2. makes sure Node.js >= 22 is present, adding the NodeSource repository when the
-   distribution ships something older (Armbian's own `nodejs` package is often
-   below 22, and the servers need `Promise.withResolvers`),
-3. creates the `openmt2` system account, `/opt/open-mt2` and `/var/log/open-mt2`,
-4. writes `/etc/open-mt2/open-mt2.env` from the annotated template, detecting
-   your LAN address for `REAL_SERVER_ADDRESS`,
-5. installs and enables `open-mt2-auth.service` and `open-mt2-game.service`,
-6. offers to apply the database schema,
-7. starts both services and prints the ports to open.
+1. creates the system user/group `open-mt2`;
+2. copies `bin/`, `dist/`, `node_modules/`, `deploy/`, `scripts/`, `etc/` and
+   the docs into `/opt/open-mt2`;
+3. uses the system Node.js when it is new enough, otherwise downloads a private
+   runtime into `/opt/open-mt2/runtime`;
+4. seeds `/etc/open-mt2/env` from `etc/open-mt2.env.example`;
+5. installs and enables `open-mt2-auth.service` and `open-mt2-game.service`.
 
-### Installer options
-
-| Option | Effect |
-|--------|--------|
-| `--prefix DIR` | install somewhere other than `/opt/open-mt2` |
-| `--config-dir DIR` | configuration directory (default `/etc/open-mt2`) |
-| `--log-dir DIR` | log directory (default `/var/log/open-mt2`) |
-| `--user NAME` | service account (default `openmt2`) |
-| `--skip-deps` | do not install MariaDB/Redis |
-| `--skip-migrate` | do not touch the database |
-| `--migrate` | apply the schema without asking |
-| `--no-start` | install the units but leave them stopped |
-| `--force` | replace an existing installation |
-
-## 4. Configure
-
-`/etc/open-mt2/open-mt2.env` is read by systemd (`EnvironmentFile=`) and, as a
-fallback for any older Node.js, by the servers themselves.
-
-| Variable | Meaning |
-|----------|---------|
-| `AUTH_SERVER_ADDRESS` / `GAME_SERVER_ADDRESS` | local bind address — use `0.0.0.0` to accept LAN clients |
-| `AUTH_SERVER_PORT` / `GAME_SERVER_PORT` | local ports (11002 / 13001) |
-| `REAL_SERVER_ADDRESS` | IPv4 handed to the client in the login handshake |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_ROOT_PASSWORD` | MySQL/MariaDB credentials |
-| `AUTH_DB_DATABASE_NAME`, `GAME_DB_DATABASE_NAME` | schema names (`auth`, `game`) |
-| `SEED_ADMIN_PASSWORD` | password of the seeded `admin` account |
-| `CACHE_HOST`, `CACHE_PORT`, `CACHE_PING_INTERVAL` | Redis |
-| `LOG_LEVEL` | `error`, `warn`, `info` (default) or `debug` |
-| `LOG_DIR` | log file directory |
-| `NODE_OPTIONS` | V8 flags, e.g. `--max-old-space-size=512` |
-
-> **`REAL_SERVER_ADDRESS` must be a dotted-quad IPv4 literal.** It is written into
-> the client handshake as a 32 bit integer, so hostnames are not resolved. The
-> installer fills in your LAN address; set it by hand if the box is behind NAT
-> or gets its address over DHCP.
-
-Restart after editing:
+Useful overrides:
 
 ```bash
+# Install somewhere else, with a different service account and starting now.
+sudo PREFIX=/srv/open-mt2 OPEN_MT2_USER=mt2 OPEN_MT2_AUTOSTART=1 ./scripts/install.sh
+
+# Never download a private Node runtime (fail instead if Node < 22).
+sudo OPEN_MT2_SKIP_NODE_DOWNLOAD=1 ./scripts/install.sh
+```
+
+### 1.4 Install from the `.deb`
+
+```bash
+sudo dpkg -i open-mt2_<version>_arm64.deb
+```
+
+The `postinst` maintainer script delegates to the very same
+`/opt/open-mt2/scripts/install.sh`, so `dpkg` and a manual install converge on
+one configuration. Check the result with `dpkg -l open-mt2` and
+`systemctl status open-mt2-auth`.
+
+> `dpkg -i` does not install `Suggests`. Install `mariadb-server` and
+> `redis-server` yourself, or point the config at existing hosts.
+
+### 1.5 Configure
+
+```bash
+sudo nano /etc/open-mt2/env
+```
+
+At a minimum set:
+
+```ini
+AUTH_SERVER_ADDRESS=0.0.0.0     # reachable by the client
+GAME_SERVER_ADDRESS=0.0.0.0
+REAL_SERVER_ADDRESS=192.168.1.50  # the address the CLIENT will dial
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_ROOT_PASSWORD=<your password>
+SEED_ADMIN_PASSWORD=<something other than admin>
+```
+
+### 1.6 Create the databases
+
+```bash
+OPEN_MT2_ENV_FILE=/etc/open-mt2/env /opt/open-mt2/bin/open-mt2-migrate
+```
+
+> The bootstrap script **drops and recreates** the `auth` and `game` databases.
+> Never run it automatically during an upgrade.
+
+### 1.7 Run
+
+```bash
+sudo systemctl start open-mt2-auth open-mt2-game
+sudo systemctl status open-mt2-auth open-mt2-game
+sudo journalctl -u open-mt2-auth -u open-mt2-game -f
+```
+
+Without systemd, run the launchers directly:
+
+```bash
+/opt/open-mt2/bin/open-mt2-auth
+/opt/open-mt2/bin/open-mt2-game
+```
+
+The launchers pick the Node runtime in this order: `$OPEN_MT2_NODE`,
+`$OPEN_MT2_HOME/runtime/bin/node`, then `node` from `PATH`, and they refuse to
+start on Node < 22.
+
+### 1.8 Upgrade / uninstall
+
+```bash
+# Upgrade: replace the prefix, keep /etc/open-mt2/env, then reinstall the units.
+sudo rm -rf /opt/open-mt2
+sudo tar -xzpf open-mt2-<version>-linux-arm64.tar.gz -C /tmp
+sudo /tmp/open-mt2-<version>/scripts/install.sh
 sudo systemctl restart open-mt2-auth open-mt2-game
+
+# Uninstall (keeps /etc/open-mt2/env unless you pass --purge).
+sudo /opt/open-mt2/scripts/uninstall.sh
 ```
 
-## 5. Point the client at the server
+### 1.9 Node runtime
 
-In the client's `serverinfo.py`:
-
-```python
-SERVER_IP = "192.168.1.50"   # the Pine A64 address
-CH1_NAME  = "CH1"
-PORT_1    = 13001
-PORT_AUTH = 11002
-PORT_MARK = 13001
-```
-
-Log in with `admin` / the password in `SEED_ADMIN_PASSWORD`.
-
-## 6. Operating
+The installer accepts a system Node.js >= 22. If the board has an older one, it
+downloads a private ARM64 runtime:
 
 ```bash
-systemctl status open-mt2-auth open-mt2-game
-journalctl -u open-mt2-auth -u open-mt2-game -f
-tail -f /var/log/open-mt2/error.log
+sudo /opt/open-mt2/scripts/install-node.sh          # honours OPEN_MT2_ARCH
+sudo /opt/open-mt2/scripts/install-node.sh --force  # replace an existing runtime
 ```
 
-Both services restart automatically on failure and shut down gracefully on
-`SIGTERM` (the game server despawns players and flushes character state).
+Set `OPEN_MT2_ARCH=aarch64` to pin the architecture, and `OPEN_MT2_NODE` to
+point the launchers at a specific binary.
 
-To remove the installation:
+## 2. Docker Compose
+
+`docker-compose.arm64.yml` is self-contained: copy it to the board together
+with `.env` and run it.
 
 ```bash
-sudo ./deploy/uninstall.sh            # keeps the configuration
-sudo ./deploy/uninstall.sh --purge    # also removes /etc/open-mt2 and the logs
-sudo ./deploy/uninstall.sh --drop-db  # also drops the auth and game schemas
+cp .env.example .env && $EDITOR .env
+docker compose -f docker-compose.arm64.yml up -d
+docker compose -f docker-compose.arm64.yml ps
+docker compose -f docker-compose.arm64.yml logs -f game-server
 ```
 
-## Notes for small boards
-
-A Pine A64 has 1–2 GB of RAM. MariaDB and Redis dominate the footprint:
-
-- `NODE_OPTIONS=--max-old-space-size=512` in the env file keeps the game server
-  from ballooning; the servers are memory light.
-- Keep `LOG_LEVEL=info`. `debug` logs every packet and will fill the journal and
-  `/var/log/open-mt2`.
-- Use `vm.swappiness=10` if the kernel starts reclaiming under load.
-- MariaDB's default buffer pool (128 MB) is more than adequate; raise
-  `innodb_buffer_pool_size` only after measuring.
-
-## Running in Docker instead
-
-The image is multi-arch (`linux/amd64`, `linux/arm64`):
+It pins `platform: linux/arm64` on every service, so the same file works on a
+Pine A64 and on an amd64 workstation running the ARM64 image through QEMU.
+Relevant knobs:
 
 ```bash
-docker buildx build --platform linux/arm64 -t open-mt2:arm64 .
+DB_IMAGE=mariadb:11 docker compose -f docker-compose.arm64.yml up -d
+CACHE_IMAGE=redis:7-alpine docker compose -f docker-compose.arm64.yml up -d
+OPEN_MT2_IMAGE=ghcr.io/wojtkob/open-mt2:latest \
+  OPEN_MT2_PULL_POLICY=always \
+  docker compose -f docker-compose.arm64.yml up -d
 ```
 
-It runs as the unprivileged `node` user, writes logs to
-`/opt/open-mt2/logs`, exposes 11002 and 13001, and needs `DB_HOST` / `CACHE_HOST`
-pointing at reachable services (`docker-compose.dep.yml` provides MariaDB and
-Redis for local development).
+> This repository was renamed from `wojtkob/open-mt2` to
+> `wojtkob/open-mt2-chamber`, but the container image keeps its original path
+> `ghcr.io/wojtkob/open-mt2`. A GHCR package stays bound to the repository that
+> first pushed it, so a renamed repository cannot publish under a matching image
+> name without a token that owns that package. Keeping the path means existing
+> `docker pull` commands and Compose files do not break.
+
+Run the migration inside a container:
+
+```bash
+docker compose -f docker-compose.arm64.yml run --rm auth node dist/tools/database/migrate.js
+```
+
+## 3. Run from source
+
+Building on the board itself needs the dev dependency tree (~500 MB) and takes a
+few minutes on a Pine A64 — a cross-build elsewhere is much faster.
+
+```bash
+sudo apt-get install -y git build-essential python3
+git clone https://github.com/wojtkob/open-mt2-chamber.git
+cd open-mt2-chamber
+npm ci --ignore-scripts
+cp .env.example .env && $EDITOR .env
+npm run build
+npm run migrate
+npm run auth            # dist/auth/main.js
+npm run game            # dist/game/main.js
+```
+
+`npm run dev:auth` / `npm run dev:game` (ts-node-dev with reload) are also
+available but noticeably slower on ARM.
+
+## 4. Troubleshooting
+
+**`[RESOURCE_PATHS] Unable to locate the "spawn" data directory`**
+The compiled tree lost its data files. Either run `npm run build` (which copies
+them into `dist/`), or point `OPEN_MT2_DATA_DIR` at a directory that contains
+`core/infra/config/data/spawn`, `core/infra/config/data/attr`,
+`core/domain/quests/quests` and `core/infra/database/scripts`. The error lists
+every path that was probed.
+
+**`Cannot find module '@/...'`**
+A stale `dist/` produced without `tsc-alias`. Run `npm run build:clean` and
+rebuild; never start the compiled server with `-r tsconfig-paths/register`
+(that package is a devDependency and is not shipped).
+
+**`open-mt2 cannot start on this Node.js runtime: Node.js v20.11.1 is too old, Node.js >= 22 is required`**
+The quests need `Promise.withResolvers`, which is Node.js 22+. Install Node 22+
+system-wide, or run `sudo /opt/open-mt2/scripts/install-node.sh` to place a
+private 22.x runtime under `/opt/open-mt2/runtime`.
+
+This message comes from the servers themselves, so it appears when something
+launched Node directly (`node dist/auth/main.js`, `npm run auth`). The launchers
+in `/opt/open-mt2/bin` do the same check in shell first and say
+`open-mt2: Node.js 22+ is required, found v20.11.1 at ...` instead, so a plain
+`systemctl start open-mt2-auth` reports it without ever entering Node.
+
+**`mysql: no matching manifest for linux/arm64`**
+A leftover `mysql:5.7` reference. Use `mysql:8.0`, `mysql:8.4`, `mariadb:11` or
+the native `mariadb-server` package.
+
+**`exec format error` while running a container**
+The image was pulled for the wrong architecture. Remove it and pull again, or
+add `platform: linux/arm64` (already set in `docker-compose.arm64.yml`).
+
+**The game server is OOM-killed**
+The systemd unit already starts Node with `--max-old-space-size=1024` inside a
+`MemoryMax=1400M` slice (`systemctl show open-mt2-game -p Environment` shows
+it). If it is still killed, add swap or lower the heap cap — never `MemoryMax`
+below it. On Compose, check `docker inspect game-server --format
+'{{.State.OOMKilled}}'`.
+
+**`systemctl start` fails with status 203/EXEC**
+The launcher lost its executable bit (e.g. the package was extracted by a tool
+that ignores modes). Run `chmod +x /opt/open-mt2/bin/open-mt2-* /opt/open-mt2/scripts/*.sh`.
+
+## 5. Continuous integration
+
+### The gate — `.github/workflows/flow.yml`
+
+Runs on every pull request and every push to `master`:
+
+- **quality** — `format:check` and `lint` (both read-only; they never rewrite
+  files), a full build, and the unit test suite with coverage;
+- **package** — builds and verifies the ARM64 artefacts, so a broken tarball or
+  `.deb` fails the gate instead of the publish step.
+
+### The release — `.github/workflows/release.yml`
+
+Publishes automatically once a build is green. It is triggered by a successful
+`workflow_run` of the CI Pipeline on `master`, and also by a `v*` tag, a nightly
+`schedule` and `workflow_dispatch`.
+
+A **gate** job runs first and refuses to publish a red or forked build, then
+classifies the run as either the rolling `autobuild` prerelease or an immutable
+semver release. Every job builds the exact commit the CI run tested.
+
+- **build** — compiles and produces + verifies the amd64 package;
+- **arm64** — the same build, the unit test suite and the package verification
+  on a **native `ubuntu-24.04-arm` runner**, plus a relocability smoke test that
+  extracts the tarball, renames the prefix and resolves the data trees from an
+  unrelated working directory. **This job gates publication**: a release is
+  never published from an artefact set the ARM64 job did not verify;
+- **docker** — `buildx` + QEMU builds `linux/amd64` and `linux/arm64` and pushes
+  the manifest to GHCR under the `latest`, `autobuild`, version and prerelease
+  tags; the arm64 variant is booted under QEMU and its entry points are
+  executed. The manifest omits `linux/arm/v7` because GitHub's runners cannot
+  emulate armv7 (`tonistiigi/binfmt` rejects it), which fails the build with
+  `exec format error`. On an armv7 board, build the image locally with
+  `docker build .` — the tarball and `.deb` work on armv7 regardless;
+- **release** — publishes the tarballs, the `.deb`s and `SHA256SUMS` as a
+  GitHub release. A semver tag becomes the *Latest* release; `autobuild` is a
+  prerelease, is pinned to the exact commit it was built from, and has its
+  superseded assets pruned on every run so it never grows without bound.
+
+### Installing the autobuild
+
+The rolling release is what a Pine A64 user installs:
+
+```sh
+VERSION=autobuild
+wget "https://github.com/wojtkob/open-mt2-chamber/releases/download/$VERSION/open-mt2-<version>-linux-arm64.tar.gz"
+tar -xzf "open-mt2-<version>-linux-arm64.tar.gz"
+cd "open-mt2-<version>"
+sudo ./scripts/install.sh
+```
+
+`<version>` is the version on the release page. The filename keeps the
+`package.json` version even under the `autobuild` tag, because the version is
+baked into the artefacts at build time.
+
+`SHA256SUMS` is published next to the artefacts for verification:
+
+```sh
+sha256sum --check --ignore-missing --strict SHA256SUMS
+```
+
+`--ignore-missing` is needed because that one file lists every artefact in the
+release — the amd64 package too — while you only downloaded the ARM64 one.
+Without it, `sha256sum` reports `FAILED open or read` for the files you did not
+download and exits non-zero even though the tarball you have is intact.
+
+Download the amd64 artefacts as well and drop the flag if you want a strict
+check of the whole set.
+
+For a fixed version, cut a `v<version>` tag. The tag must match the
+`package.json` version or the run is rejected, which stops a tag from
+advertising a release that was never built.

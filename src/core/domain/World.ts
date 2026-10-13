@@ -123,11 +123,24 @@ export default class World {
 
         const maxDimensions = { maxWidth: 0, maxHeight: 0 };
         for (const { mapName, posX, posY, width, height, aka, goto } of this.config.atlas) {
+            maxDimensions.maxWidth = Math.max(maxDimensions.maxWidth, posX + width * AREA_UNIT);
+            maxDimensions.maxHeight = Math.max(maxDimensions.maxHeight, posY + height * AREA_UNIT);
+
+            // atlasinfo.json lists some maps at several coordinates (e.g.
+            // metin2_map_monkeydungeon appears 4 times) but `areas` is keyed by
+            // mapName, so loading every entry spawns the same map's mobs again
+            // and then throws all but the last instance away. The first
+            // occurrence wins; the others still contribute to the world bounds
+            // above so the grid is unchanged.
+            if (this.areas.has(mapName)) {
+                this.logger.debug(`[WORLD] skipping duplicate atlas entry for map: ${mapName}`);
+                continue;
+            }
+
             this.logger.info(
                 `[WORLD] loading area: name: ${mapName}, posX: ${posX}, posY: ${posY}, width: ${width}, height: ${height}, sizeX: ${posX + width * AREA_UNIT}, sizeY: ${posY + height * AREA_UNIT}`,
             );
-            maxDimensions.maxWidth = Math.max(maxDimensions.maxWidth, posX + width * AREA_UNIT);
-            maxDimensions.maxHeight = Math.max(maxDimensions.maxHeight, posY + height * AREA_UNIT);
+
             const area = new Area(
                 {
                     name: mapName,

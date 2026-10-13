@@ -72,11 +72,58 @@ export default class SpawnManager {
         return monster;
     }
 
-    private createMonsters(spawn: SpawnConfig) {
+    /**
+     * Builds the leader and members of a group spawn. Shared by GROUP ("g") and
+     * GROUP_COLLECTION ("r"): a GROUP entry references a `Groups` entry directly
+     * by vnum, while a GROUP_COLLECTION picks one of its member groups at random
+     * first. Both then resolve to the same { leaderVnum, mobs } shape.
+     */
+    private spawnGroup(spawn: SpawnConfig, groupConfig: Groups): Array<Mob> {
         const entitiesToSpawn: Array<Mob> = [];
         const monsterGroup = new MonsterGroup({ spawnConfig: spawn });
+
+        const leader = this.createMonster({
+            id: Number(groupConfig.leaderVnum),
+            x: spawn.getX(),
+            y: spawn.getY(),
+            direction: spawn.getDirection(),
+            rangeX: spawn.getRangeX(),
+            rangeY: spawn.getRangeY(),
+        });
+
+        if (!leader) {
+            this.logger.error(`[SpawnManager] monster not found with vnum: ${groupConfig.leaderVnum}`);
+            return entitiesToSpawn;
+        }
+
+        monsterGroup.setLeader(leader as Monster);
+        entitiesToSpawn.push(leader);
+
+        for (const monsterConfig of groupConfig.mobs) {
+            const monster = this.createMonster({
+                id: Number(monsterConfig.vnum),
+                x: spawn.getX(),
+                y: spawn.getY(),
+                direction: spawn.getDirection(),
+                rangeX: spawn.getRangeX(),
+                rangeY: spawn.getRangeY(),
+            });
+
+            if (monster instanceof Monster) {
+                entitiesToSpawn.push(monster);
+                monsterGroup.addMember(monster);
+            }
+        }
+
+        return entitiesToSpawn;
+    }
+
+    private createMonsters(spawn: SpawnConfig) {
+        const entitiesToSpawn: Array<Mob> = [];
+
         switch (spawn.getType()) {
             case SpawnConfigTypeEnum.MONSTER: {
+                const monsterGroup = new MonsterGroup({ spawnConfig: spawn });
                 const entity = this.createMonster({
                     id: spawn.getId(),
                     x: spawn.getX(),
@@ -116,44 +163,27 @@ export default class SpawnManager {
                     this.logger.error(`[SpawnManager] group not found with vnum: ${groupVnum}`);
                     break;
                 }
-                const leader = this.createMonster({
-                    id: Number(groupConfig.leaderVnum),
-                    x: spawn.getX(),
-                    y: spawn.getY(),
-                    direction: spawn.getDirection(),
-                    rangeX: spawn.getRangeX(),
-                    rangeY: spawn.getRangeY(),
-                });
 
-                if (!leader) {
-                    this.logger.error(`[SpawnManager] monster not found with vnum: ${groupConfig.leaderVnum}`);
+                entitiesToSpawn.push(...this.spawnGroup(spawn, groupConfig));
+                break;
+            }
+            case SpawnConfigTypeEnum.GROUP: {
+                const groupConfig = this.groups.find((g) => Number(g.vnum) === spawn.getId());
+
+                if (!groupConfig) {
+                    this.logger.error(`[SpawnManager] group not found with vnum: ${spawn.getId()}`);
                     break;
                 }
 
-                monsterGroup.setLeader(leader as Monster);
-                entitiesToSpawn.push(leader);
-
-                for (const monsterConfig of groupConfig.mobs) {
-                    const monster = this.createMonster({
-                        id: Number(monsterConfig.vnum),
-                        x: spawn.getX(),
-                        y: spawn.getY(),
-                        direction: spawn.getDirection(),
-                        rangeX: spawn.getRangeX(),
-                        rangeY: spawn.getRangeY(),
-                    });
-
-                    if (monster instanceof Monster) {
-                        entitiesToSpawn.push(monster);
-                        monsterGroup.addMember(monster);
-                    }
-                }
+                entitiesToSpawn.push(...this.spawnGroup(spawn, groupConfig));
                 break;
             }
             case SpawnConfigTypeEnum.SPECIAL:
-            case SpawnConfigTypeEnum.GROUP:
+            case SpawnConfigTypeEnum.EXCEPTION:
             default:
-                this.logger.error('[SpawnManager] invalid spawn type', spawn.getType());
+                this.logger.warn(
+                    `[SpawnManager] unsupported spawn type "${SpawnConfigTypeEnum[spawn.getType()]}" (${spawn.getType()}) for vnum ${spawn.getId()}`,
+                );
                 break;
         }
 
