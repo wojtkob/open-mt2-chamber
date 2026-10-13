@@ -18,9 +18,11 @@ Hardware notes for a Pine A64 class board (quad-core Cortex-A53, 2 GB):
 
 - Give the board at least **2 GB of RAM**. Add 2 GB of swap if the game server
   is killed by the OOM killer.
-- The game server holds the whole world in memory. Start it with a heap cap
-  below the container/system limit so V8 collects before the kernel kills the
-  process: `--max-old-space-size=1024`.
+- The game server holds the whole world in memory. The shipped systemd unit and
+  `docker-compose.arm64.yml` both cap the V8 heap at 1024 MB
+  (`--max-old-space-size=1024`) inside a 1400 MB system/container limit, so V8
+  collects before the kernel or the cgroup OOM killer ends the process. If you
+  change either number, keep the limit above the heap cap.
 - Use an SD card of class 10 or better, or an external SSD; MySQL's InnoDB on a
   slow card will dominate your latency.
 - Run MySQL/MariaDB and Redis **on the same board** for a private server, or
@@ -304,8 +306,11 @@ The image was pulled for the wrong architecture. Remove it and pull again, or
 add `platform: linux/arm64` (already set in `docker-compose.arm64.yml`).
 
 **The game server is OOM-killed**
-Lower `--max-old-space-size`, add swap, or reduce the container memory limit.
-`docker inspect game-server --format '{{.State.OOMKilled}}'` confirms it.
+The systemd unit already starts Node with `--max-old-space-size=1024` inside a
+`MemoryMax=1400M` slice (`systemctl show open-mt2-game -p Environment` shows
+it). If it is still killed, add swap or lower the heap cap — never `MemoryMax`
+below it. On Compose, check `docker inspect game-server --format
+'{{.State.OOMKilled}}'`.
 
 **`systemctl start` fails with status 203/EXEC**
 The launcher lost its executable bit (e.g. the package was extracted by a tool

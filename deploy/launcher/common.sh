@@ -75,8 +75,13 @@ open_mt2_node_args() {
     env_file=${OPEN_MT2_ENV_FILE:-$OPEN_MT2_HOME/etc/open-mt2.env}
 
     if [ -n "${OPEN_MT2_EXTRA_NODE_ARGS:-}" ]; then
-        # shellcheck disable=SC2086
-        printf -- '--env-file=%s %s' "$env_file" "$OPEN_MT2_EXTRA_NODE_ARGS"
+        if [ -r "$env_file" ]; then
+            # shellcheck disable=SC2086
+            printf -- '--env-file=%s %s' "$env_file" "$OPEN_MT2_EXTRA_NODE_ARGS"
+        else
+            # shellcheck disable=SC2086
+            printf -- '%s' "$OPEN_MT2_EXTRA_NODE_ARGS"
+        fi
         return 0
     fi
 
