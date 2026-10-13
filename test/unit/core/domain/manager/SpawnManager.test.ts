@@ -253,4 +253,81 @@ describe('SpawnManager (issue #266)', () => {
         expect(entities).to.have.lengthOf(0);
         expect(logger.error.calledOnce).to.be.true;
     });
+
+    it('spawns the leader and members of a GROUP ("g") spawn instead of dropping it as an invalid type', async () => {
+        fs.writeFileSync(
+            path.join(spawnDir, 'regen.json'),
+            JSON.stringify([
+                {
+                    type: 'g',
+                    x: '10',
+                    y: '10',
+                    rangeX: '0',
+                    rangeY: '0',
+                    z: '0',
+                    direction: '0',
+                    spawnTime: '600s',
+                    percent: '100',
+                    count: '1',
+                    vnum: '101',
+                },
+            ]),
+        );
+
+        const entityManager = { createMob: sinon.stub().callsFake(() => makeMonster()) } as any;
+        const logger = { error: sinon.stub(), warn: sinon.stub(), debug: sinon.stub(), info: sinon.stub() };
+        const spawnManager = new SpawnManager({
+            logger: logger as any,
+            config: {
+                groups: [{ vnum: '101', leaderVnum: '101', mobs: [{ vnum: '101' }, { vnum: '101' }] }],
+                groupsCollection: [],
+            } as any,
+            entityManager,
+        });
+
+        const entities = await spawnManager.getEntities('test_area');
+
+        // leader + two members
+        expect(entities).to.have.lengthOf(3);
+        expect(logger.error.called).to.be.false;
+        expect(logger.warn.called).to.be.false;
+    });
+
+    it('names the type and vnum when it logs an unsupported spawn type', async () => {
+        fs.writeFileSync(
+            path.join(spawnDir, 'regen.json'),
+            JSON.stringify([
+                {
+                    type: 's',
+                    x: '10',
+                    y: '10',
+                    rangeX: '0',
+                    rangeY: '0',
+                    z: '0',
+                    direction: '0',
+                    spawnTime: '600s',
+                    percent: '100',
+                    count: '1',
+                    vnum: '777',
+                },
+            ]),
+        );
+
+        const entityManager = { createMob: sinon.stub() } as any;
+        const logger = { error: sinon.stub(), warn: sinon.stub(), debug: sinon.stub(), info: sinon.stub() };
+        const spawnManager = new SpawnManager({
+            logger: logger as any,
+            config: { groups: [], groupsCollection: [] } as any,
+            entityManager,
+        });
+
+        const entities = await spawnManager.getEntities('test_area');
+
+        expect(entities).to.have.lengthOf(0);
+        expect(logger.warn.calledOnce).to.be.true;
+        const message = logger.warn.firstCall.args[0] as string;
+        expect(message).to.include('SPECIAL');
+        expect(message).to.include('777');
+        expect(message).to.not.include('invalid spawn type');
+    });
 });
